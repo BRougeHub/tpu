@@ -67,6 +67,11 @@ class TfExampleDecoder(object):
             tf.VarLenFeature(tf.int64),
         'image/object/weight':
             tf.VarLenFeature(tf.float32),
+      #Mask
+        'image/object/mask':
+            tf.FixedLenFeature((), tf.string, default_value=''),
+        'image/object/format':
+            tf.FixedLenFeature((), tf.string, default_value='png')
     }
     self.items_to_handlers = {
         'image': slim_example_decoder.Image(
@@ -91,6 +96,10 @@ class TfExampleDecoder(object):
             slim_example_decoder.Tensor('image/object/group_of')),
         'groundtruth_weights': (
             slim_example_decoder.Tensor('image/object/weight')),
+        'labels_class': slim_example_decoder.Image(
+            image_key='image/object/mask',
+            format_key='image/object/format',
+            channels=1)
     }
     label_handler = slim_example_decoder.Tensor('image/object/class/label')
     self.items_to_handlers['groundtruth_classes'] = label_handler
