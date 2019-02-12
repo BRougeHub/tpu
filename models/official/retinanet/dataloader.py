@@ -119,6 +119,18 @@ class InputProcessor(object):
     output_image = tf.image.pad_to_bounding_box(
         scaled_image, 0, 0, self._output_size, self._output_size)
     return output_image
+  
+  def resize_and_crop_mask(self, method=tf.image.ResizeMethod.BILINEAR):
+    """Resize input image and crop it to the self._output dimension."""
+    scaled_image = tf.image.resize_images(
+        self._image, [self._scaled_height, self._scaled_width], method=method)
+    scaled_image = tf.cast(tf.minimum(tf.cast(scaled_image, tf.int32), 1), tf.float32)
+    scaled_image = scaled_image[
+        self._crop_offset_y:self._crop_offset_y + self._output_size,
+        self._crop_offset_x:self._crop_offset_x + self._output_size, :]
+    output_image = tf.image.pad_to_bounding_box(
+        scaled_image, 0, 0, self._output_size, self._output_size)
+    return output_image
 
 
 class DetectionInputProcessor(InputProcessor):
@@ -288,6 +300,7 @@ class InputReader(object):
         boxes = data['groundtruth_boxes']
         classes = data['groundtruth_classes']
         classes = tf.reshape(tf.cast(classes, dtype=tf.float32), [-1, 1])
+        mask = data['labels_class']
         areas = data['groundtruth_area']
         is_crowds = data['groundtruth_is_crowd']
         classes = tf.reshape(tf.cast(classes, dtype=tf.float32), [-1, 1])
@@ -299,15 +312,22 @@ class InputReader(object):
 
         input_processor = DetectionInputProcessor(
             image, params['image_size'], boxes, classes)
+        mask_processor = DetectionInputProcessor(
+            mask, params['image_size'], boxes, classes)
         input_processor.normalize_image()
         if self._is_training and params['input_rand_hflip']:
           input_processor.random_horizontal_flip()
+          mask_processor.random_horizontal_flip()
         if self._is_training:
           input_processor.set_training_random_scale_factors(
               params['train_scale_min'], params['train_scale_max'])
+          mask_processor.set_training_random_scale_factors(
+              params['train_scale_min'], params['train_scale_max'])
         else:
           input_processor.set_scale_factors_to_output_size()
+          mask_processor.set_scale_factors_to_output_size()
         image = input_processor.resize_and_crop_image()
+        mask = mask_processor.resize_and_crop_mask()
         boxes, classes = input_processor.resize_and_crop_boxes()
 
         # Assign anchors.
@@ -329,8 +349,9 @@ class InputReader(object):
         classes = pad_to_fixed_size(classes, -1, [self._max_num_instances, 1])
         if params['use_bfloat16']:
           image = tf.cast(image, dtype=tf.bfloat16)
+          mask = tf.cast(image, dtype=tf.bfloat16)
         return (image, cls_targets, box_targets, num_positives, source_id,
-                image_scale, boxes, is_crowds, areas, classes)
+                image_scale, boxes, is_crowds, areas, classes, mask)
 
     batch_size = params['batch_size']
     dataset = tf.data.Dataset.list_files(
@@ -356,7 +377,7 @@ class InputReader(object):
 
     def _process_example(images, cls_targets, box_targets, num_positives,
                          source_ids, image_scales, boxes, is_crowds, areas,
-                         classes):
+                         classes, mask):
       """Processes one batch of data."""
       labels = {}
       # Count num_positives in a batch.
@@ -374,6 +395,7 @@ class InputReader(object):
       labels['source_ids'] = source_ids
       labels['groundtruth_data'] = groundtruth_data
       labels['image_scales'] = image_scales
+      labels['mask']  = mask
       return images, labels
 
     dataset = dataset.map(_process_example)
