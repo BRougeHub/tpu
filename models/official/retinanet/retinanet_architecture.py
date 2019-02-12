@@ -610,6 +610,7 @@ def retinanet(features,
   with tf.variable_scope('retinanet'):
     class_outputs = {}
     box_outputs = {}
+    map_outputs = {}
     with tf.variable_scope('class_net', reuse=tf.AUTO_REUSE):
       for level in range(min_level, max_level + 1):
         class_outputs[level] = class_net(feats[level], level, num_classes,
@@ -618,8 +619,34 @@ def retinanet(features,
       for level in range(min_level, max_level + 1):
         box_outputs[level] = box_net(feats[level], level,
                                      num_anchors, is_training_bn)
+    
+    with tf.variable_scope('seg_net', reuse=tf.AUTO_REUSE) :
+        for level in range(min_level, max_level + 1):
+          map_outputs[level] = segmentation_class_net(
+              feats[level], level, is_training_bn=is_training_bn)
+          if level == min_level:
+            fused_feature = map_outputs[level]
+          else:
+            if use_nearest_upsampling:
+              scale = level / min_level
+              map_outputs[level] = nearest_upsampling(map_outputs[level], scale)
+            else:
+              map_outputs[level] = resize_bilinear(
+                  map_outputs[level], tf.shape(map_outputs[min_level])[1:3], 
+                  map_outputs[level].dtype)
+            fused_feature += map_outputs[level]
+        fused_feature = batch_norm_relu(
+          fused_feature, is_training_bn, relu=True, init_zero=False)
+        classes = tf.layers.conv2d(
+          fused_feature,
+          1,
+          kernel_size=(3, 3),
+          bias_initializer=tf.zeros_initializer(),
+          kernel_initializer=tf.random_normal_initializer(stddev=0.01),
+          padding='same',
+          name='map-predict')
 
-  return class_outputs, box_outputs
+  return class_outputs, box_outputs, classes
 
 
 def remove_variables(variables, resnet_depth=50):
