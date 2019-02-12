@@ -185,8 +185,36 @@ def _box_loss(box_outputs, box_targets, num_positives, delta=0.1):
   box_loss /= normalizer
   return box_loss
 
+def _segmentation_loss(logits, labels, params):
+  """Compute segmentation loss. So far it's only for single scale.
 
-def detection_loss(cls_outputs, box_outputs, labels, params):
+  Args:
+    logits: A tensor specifies the logits as returned from model function.
+      The tensor size is [batch_size, height_l, width_l, num_classes].
+      The height_l and width_l depends on the min_level feature resolution.
+    labels: A tensor specifies the groundtruth targets "cls_targets",
+      as returned from dataloader. The tensor has the same spatial resolution
+      as input image with size [batch_size, height, width, 1].
+    params: Dictionary including training parameters specified in
+      default_hparams function in this file.
+  Returns:
+    A float tensor representing total classification loss. The loss is
+      normalized by the total non-ignored pixels.
+  """
+  # Downsample labels by the min_level feature stride.
+  stride = 2**params['min_level']
+  scaled_labels = labels[:, 0::stride, 0::stride]
+
+  scaled_labels = tf.cast(scaled_labels, tf.float32)
+  #Binary-cross entropy
+  mse = tf.nn.sigmoid_cross_entropy_with_logits(labels=scaled_labels, logits=logits)
+#  cross_entropy_loss *= tf.to_float(bit_mask)
+  loss = tf.reduce_mean(mse)#/ normalizer
+#  loss = tf.Print(loss, [loss], summarize=20)
+  return loss
+
+
+def detection_loss(cls_outputs, box_outputs, map_outputs, labels, params):
   """Computes total detection loss.
 
   Computes total detection loss including box and class loss from all levels.
@@ -235,12 +263,15 @@ def detection_loss(cls_outputs, box_outputs, labels, params):
             box_targets_at_level,
             num_positives_sum,
             delta=params['delta']))
+  map_loss = _segmentation_loss(map_outputs, 
+                              labels['mask'],
+                              params)    
 
   # Sum per level losses to total loss.
   cls_loss = tf.add_n(cls_losses)
   box_loss = tf.add_n(box_losses)
-  total_loss = cls_loss + params['box_loss_weight'] * box_loss
-  return total_loss, cls_loss, box_loss
+  total_loss = cls_loss + params['box_loss_weight'] * box_loss + map_loss 
+  return total_loss, cls_loss, box_loss, map_loss
 
 
 def add_metric_fn_inputs(params, cls_outputs, box_outputs, metric_fn_inputs):
@@ -360,13 +391,14 @@ def _model_fn(features, labels, mode, params, model, variable_filter_fn=None):
 
   if params['use_bfloat16']:
     with tf.contrib.tpu.bfloat16_scope():
-      cls_outputs, box_outputs = _model_outputs()
+      cls_outputs, box_outputs, map_outputs = _model_outputs()
       levels = cls_outputs.keys()
       for level in levels:
         cls_outputs[level] = tf.cast(cls_outputs[level], tf.float32)
         box_outputs[level] = tf.cast(box_outputs[level], tf.float32)
+      map_outputs = tf.cast(map_outputs, tf.float32)
   else:
-    cls_outputs, box_outputs = _model_outputs()
+    cls_outputs, box_outputs, map_outputs = _model_outputs()
     levels = cls_outputs.keys()
 
   # First check if it is in PREDICT mode.
@@ -377,6 +409,8 @@ def _model_fn(features, labels, mode, params, model, variable_filter_fn=None):
     for level in levels:
       predictions['cls_outputs_%d' % level] = cls_outputs[level]
       predictions['box_outputs_%d' % level] = box_outputs[level]
+    predictions['map_outputs'] = map_outputs
+    
     return tf.estimator.EstimatorSpec(mode=mode, predictions=predictions)
 
   # Load pretrained model from checkpoint.
@@ -399,7 +433,8 @@ def _model_fn(features, labels, mode, params, model, variable_filter_fn=None):
       params['lr_warmup_step'], params['first_lr_drop_step'],
       params['second_lr_drop_step'], global_step)
   # cls_loss and box_loss are for logging. only total_loss is optimized.
-  total_loss, cls_loss, box_loss = detection_loss(cls_outputs, box_outputs,
+  total_loss, cls_loss, box_loss, map_loss = detection_loss(cls_outputs, box_outputs,
+                                                  map_outputs,
                                                   labels, params)
   total_loss += _WEIGHT_DECAY * tf.add_n(
       [tf.nn.l2_loss(v) for v in tf.trainable_variables()
