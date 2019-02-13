@@ -301,6 +301,7 @@ class InputReader(object):
         classes = data['groundtruth_classes']
         classes = tf.reshape(tf.cast(classes, dtype=tf.float32), [-1, 1])
         mask = data['labels_class']
+        print(mask)
         areas = data['groundtruth_area']
         is_crowds = data['groundtruth_is_crowd']
         classes = tf.reshape(tf.cast(classes, dtype=tf.float32), [-1, 1])
@@ -327,7 +328,8 @@ class InputReader(object):
           input_processor.set_scale_factors_to_output_size()
           #mask_processor.set_scale_factors_to_output_size()
         image = input_processor.resize_and_crop_image()
-        #mask = mask_processor.resize_and_crop_mask()
+        mask = mask_processor.resize_and_crop_mask()
+        print(mask)
         boxes, classes = input_processor.resize_and_crop_boxes()
 
         # Assign anchors.
