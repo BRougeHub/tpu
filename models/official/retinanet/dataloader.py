@@ -350,6 +350,7 @@ class InputReader(object):
         if params['use_bfloat16']:
           image = tf.cast(image, dtype=tf.bfloat16)
           mask = tf.cast(image, dtype=tf.bfloat16)
+        print(mask)
         return (image, cls_targets, box_targets, num_positives, source_id,
                 image_scale, boxes, is_crowds, areas, classes, mask)
 
@@ -396,6 +397,7 @@ class InputReader(object):
       labels['groundtruth_data'] = groundtruth_data
       labels['image_scales'] = image_scales
       labels['mask']  = mask
+      print(mask)
       return images, labels
 
     dataset = dataset.map(_process_example)
