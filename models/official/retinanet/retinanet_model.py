@@ -263,7 +263,7 @@ def detection_loss(cls_outputs, box_outputs, map_outputs, labels, params):
             box_targets_at_level,
             num_positives_sum,
             delta=params['delta']))
-  print(tf.shape(labels['mask']))
+  print(labels['mask'])
   map_loss = _segmentation_loss(map_outputs, 
                               labels['mask'],
                               params)    
