@@ -627,13 +627,13 @@ def retinanet(features,
           if level == min_level:
             fused_feature = map_outputs[level]
           else:
-            if use_nearest_upsampling:
-              scale = level / min_level
-              map_outputs[level] = nearest_upsampling(map_outputs[level], scale)
-            else:
-              map_outputs[level] = resize_bilinear(
-                  map_outputs[level], tf.shape(map_outputs[min_level])[1:3], 
-                  map_outputs[level].dtype)
+#            if use_nearest_upsampling:
+#              scale = level / min_level
+#             map_outputs[level] = nearest_upsampling(map_outputs[level], scale)
+#            else:
+            map_outputs[level] = resize_bilinear(
+                map_outputs[level], tf.shape(map_outputs[min_level])[1:3], 
+                map_outputs[level].dtype)
             fused_feature += map_outputs[level]
         fused_feature = batch_norm_relu(
           fused_feature, is_training_bn, relu=True, init_zero=False)
