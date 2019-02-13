@@ -313,8 +313,8 @@ class InputReader(object):
 
         input_processor = DetectionInputProcessor(
             image, params['image_size'], boxes, classes)
-        #mask_processor = DetectionInputProcessor(
-         #   mask, params['image_size'], boxes, classes)
+        mask_processor = DetectionInputProcessor(
+            mask, params['image_size'], boxes, classes)
         input_processor.normalize_image()
         if self._is_training and params['input_rand_hflip']:
           input_processor.random_horizontal_flip()
