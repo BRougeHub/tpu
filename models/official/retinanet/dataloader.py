@@ -301,7 +301,6 @@ class InputReader(object):
         classes = data['groundtruth_classes']
         classes = tf.reshape(tf.cast(classes, dtype=tf.float32), [-1, 1])
         mask = data['labels_class']
-        print(mask)
         areas = data['groundtruth_area']
         is_crowds = data['groundtruth_is_crowd']
         classes = tf.reshape(tf.cast(classes, dtype=tf.float32), [-1, 1])
@@ -318,18 +317,17 @@ class InputReader(object):
         input_processor.normalize_image()
         if self._is_training and params['input_rand_hflip']:
           input_processor.random_horizontal_flip()
-          #mask_processor.random_horizontal_flip()
+          mask_processor.random_horizontal_flip()
         if self._is_training:
           input_processor.set_training_random_scale_factors(
               params['train_scale_min'], params['train_scale_max'])
-          #mask_processor.set_training_random_scale_factors(
-             # params['train_scale_min'], params['train_scale_max'])
+          mask_processor.set_training_random_scale_factors(
+              params['train_scale_min'], params['train_scale_max'])
         else:
           input_processor.set_scale_factors_to_output_size()
-          #mask_processor.set_scale_factors_to_output_size()
+          mask_processor.set_scale_factors_to_output_size()
         image = input_processor.resize_and_crop_image()
         mask = mask_processor.resize_and_crop_mask()
-        print(mask)
         boxes, classes = input_processor.resize_and_crop_boxes()
 
         # Assign anchors.
@@ -351,8 +349,7 @@ class InputReader(object):
         classes = pad_to_fixed_size(classes, -1, [self._max_num_instances, 1])
         if params['use_bfloat16']:
           image = tf.cast(image, dtype=tf.bfloat16)
-          mask = tf.cast(image, dtype=tf.bfloat16)
-        print(mask)
+          mask = tf.cast(mask, dtype=tf.bfloat16)
         return (image, cls_targets, box_targets, num_positives, source_id,
                 image_scale, boxes, is_crowds, areas, classes, mask)
 
