@@ -540,11 +540,11 @@ def default_hparams():
       is_training_bn=True,
       # optimization
       momentum=0.9,
-      learning_rate=0.08,
-      lr_warmup_init=0.008,
+      learning_rate=0.02,
+      lr_warmup_init=0.002,
       lr_warmup_epoch=1.0,
-      first_lr_drop_epoch=8.0,
-      second_lr_drop_epoch=11.0,
+      first_lr_drop_epoch=25.0,
+      second_lr_drop_epoch=35.0,
       # classification loss
       alpha=0.25,
       gamma=1.5,
