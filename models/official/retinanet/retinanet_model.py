@@ -543,8 +543,8 @@ def default_hparams():
       learning_rate=0.02,
       lr_warmup_init=0.002,
       lr_warmup_epoch=1.0,
-      first_lr_drop_epoch=25.0,
-      second_lr_drop_epoch=35.0,
+      first_lr_drop_epoch=16.0,
+      second_lr_drop_epoch=26.0,
       # classification loss
       alpha=0.25,
       gamma=1.5,
