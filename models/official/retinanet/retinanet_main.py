@@ -26,7 +26,6 @@ import numpy as np
 import tensorflow as tf
 
 import dataloader
-import my_dataloader
 import retinanet_model
 
 
@@ -59,16 +58,15 @@ flags.DEFINE_string('model_dir', None, 'Location of model_dir')
 flags.DEFINE_string('resnet_checkpoint', '',
                     'Location of the ResNet50 checkpoint to use for model '
                     'initialization.')
-flags.DEFINE_string('pre_trained', None, 'Location of the pre_trained checkpoint to use for model initialization')
 flags.DEFINE_string('hparams', '',
-                        'Comma separated k=v pairs of hyperparameters.')
+                    'Comma separated k=v pairs of hyperparameters.')
 flags.DEFINE_integer(
     'num_cores', default=8, help='Number of TPU cores for training')
 flags.DEFINE_bool('use_spatial_partition', False, 'Use spatial partition.')
 flags.DEFINE_integer(
     'num_cores_per_replica', default=8, help='Number of TPU cores per'
     'replica when using spatial partition.')
-flags.DEFINE_multi_integer( 
+flags.DEFINE_multi_integer(
     'input_partition_dims', [1, 4, 2, 1],
     'A list that describes the partition dims for all the tensors.')
 flags.DEFINE_integer('train_batch_size', 64, 'training batch size')
@@ -85,7 +83,7 @@ flags.DEFINE_string(
     'Glob for evaluation tfrecords (e.g., COCO val2017 set)')
 flags.DEFINE_string(
     'val_json_file',
-    None,   
+    None,
     'COCO validation JSON containing golden bounding boxes.')
 flags.DEFINE_integer('num_examples_per_epoch', 120000,
                      'Number of examples in one epoch')
@@ -149,7 +147,7 @@ def main(argv):
         'mean_num_positives': None,
         'source_ids': None,
         'groundtruth_data': None,
-        'image_scales': None
+        'image_scales': None,
     }
     # The Input Partition Logic: We partition only the partition-able tensors.
     # Spatial partition requires that the to-be-partitioned tensors must have a
@@ -194,7 +192,6 @@ def main(argv):
       num_examples_per_epoch=FLAGS.num_examples_per_epoch,
       use_tpu=FLAGS.use_tpu,
       resnet_checkpoint=FLAGS.resnet_checkpoint,
-      pre_trained=FLAGS.pre_trained,
       val_json_file=FLAGS.val_json_file,
       mode=FLAGS.mode,
   )
@@ -206,9 +203,10 @@ def main(argv):
 
   tpu_config = tf.contrib.tpu.TPUConfig(
       FLAGS.iterations_per_loop,
+
       num_shards=num_shards,
       num_cores_per_replica=num_cores_per_replica,
-#      input_partition_dims=input_partition_dims,
+      input_partition_dims=input_partition_dims,
       per_host_input_for_training=tf.contrib.tpu.InputPipelineConfig.PER_HOST_V2
   )
 
@@ -309,7 +307,7 @@ def main(argv):
           tf.logging.info('Evaluation finished after training step %d' %
                           current_step)
           break
-          
+
       except tf.errors.NotFoundError:
         # Since the coordinator is on a different job than the TPU worker,
         # sometimes the TPU worker does not finish initializing until long after
@@ -317,56 +315,6 @@ def main(argv):
         # file could have been deleted already.
         tf.logging.info('Checkpoint %s no longer exists, skipping checkpoint' %
                         ckpt)
-        
-  elif FLAGS.mode == 'predict':
-      
-      predict_params = dict(
-          params,
-          use_bfloat16=False,
-          )
-      params = predict_params
-#          use_tpu=False,
-#          input_rand_hflip=False,
-#          resnet_checkpoint=None,
-#          is_training_bn=False,
-#          use_bfloat16=False,
-#      )
-      
-      def predict_input_fn(params):
-          height = 640  
-          width = 640
-          total_examples = 10
-          batch_size = 10
-          images = tf.random_uniform([total_examples, height, width, 3], minval=-1, 
-                                   maxval=1)
-        
-          dataset = tf.data.Dataset.from_tensor_slices(images)
-#          dataset = dataset.map(lambda images: {'image': images})
-        
-          dataset = dataset.batch(batch_size)   
-          
-          return dataset
-          
-      
-      tpu_est = tf.contrib.tpu.TPUEstimator(
-        model_fn=retinanet_model.retinanet_model_fn,        
-        use_tpu = False,
-        predict_batch_size = 1, 
-        config=run_config,  
-        params = params)                        
-      
-      folder = 'C:/Users/{0}/OneDrive - Louisiana State University/val/'.format(os.getlogin())
-#      for sub_folder in os.listdir(folder):
-      sub_folder_path = os.path.join(folder, '*.jpg')
-#          path = 'C:/Users/{0}/OneDrive - Louisiana State University/New folder/detections/'.format(os.getlogin())
-      path = 'C:/Users/vmanee1/Downloads/pred'
-      if not os.path.isdir(path):
-          os.mkdir(path)
-      saver = my_dataloader.FolderSaver(path, params, threshold=0.1)
-      for item in tpu_est.predict(input_fn = my_dataloader.FolderReader(sub_folder_path,
-                                        shuffle=False)):      
-      
-          saver(item)
 
   elif FLAGS.mode == 'train_and_eval':
     for cycle in range(FLAGS.num_epochs):
@@ -395,8 +343,8 @@ def main(argv):
       eval_estimator = tf.contrib.tpu.TPUEstimator(
           model_fn=retinanet_model.retinanet_model_fn,
           use_tpu=False,
-          train_batch_size=FLAGS.train_batch_size,  
-          eval_batch_size=FLAGS.eval_batch_size,    
+          train_batch_size=FLAGS.train_batch_size,
+          eval_batch_size=FLAGS.eval_batch_size,
           config=run_config,
           params=eval_params)
       eval_results = eval_estimator.evaluate(
@@ -405,7 +353,7 @@ def main(argv):
           steps=FLAGS.eval_samples//FLAGS.eval_batch_size)
       tf.logging.info('Evaluation results: %s' % eval_results)
 
-  else: 
+  else:
     tf.logging.info('Mode not found.')
 
 if __name__ == '__main__':
