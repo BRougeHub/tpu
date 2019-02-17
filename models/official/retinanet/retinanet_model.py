@@ -66,7 +66,7 @@ def update_learning_rate_schedule_parameters(params):
       lr_warmup_step=468,
       first_lr_drop_step=3750,
       second_lr_drop_step=5157.
-
+      
   For training with different schedules, such as extended schedule with double
   number of epochs, adjust the values in default_hparams(). Note that the
   values are w.r.t. a batch size of 64.
@@ -185,6 +185,66 @@ def _box_loss(box_outputs, box_targets, num_positives, delta=0.1):
   box_loss /= normalizer
   return box_loss
 
+
+
+def detection_loss(cls_outputs, box_outputs, map_outputs, labels, params):
+  """Computes total detection loss.
+
+  Computes total detection loss including box and class loss from all levels.
+  Args:
+    cls_outputs: an OrderDict with keys representing levels and values
+      representing logits in [batch_size, height, width, num_anchors].
+    box_outputs: an OrderDict with keys representing levels and values
+      representing box regression targets in [batch_size, height, width,
+      num_anchors * 4].
+    labels: the dictionary that returned from dataloader that includes
+      groundturth targets.
+    params: the dictionary including training parameters specified in
+      default_haprams function in this file.
+
+  Returns:
+    total_loss: an integar tensor representing total loss reducing from
+      class and box losses from all levels.
+    cls_loss: an integar tensor representing total class loss.
+    box_loss: an integar tensor representing total box regression loss.
+  """
+  # Sum all positives in a batch for normalization and avoid zero
+  # num_positives_sum, which would lead to inf loss during training
+  num_positives_sum = tf.reduce_sum(labels['mean_num_positives']) + 1.0
+  levels = cls_outputs.keys()
+
+  cls_losses = []
+  box_losses = []
+  for level in levels:
+    # Onehot encoding for classification labels.
+    cls_targets_at_level = tf.one_hot(labels['cls_targets_%d' % level],
+                                      params['num_classes'])
+    bs, width, height, _, _ = cls_targets_at_level.get_shape().as_list()
+    cls_targets_at_level = tf.reshape(cls_targets_at_level,
+                                      [bs, width, height, -1])
+    box_targets_at_level = labels['box_targets_%d' % level]
+    cls_losses.append(
+        _classification_loss(
+            cls_outputs[level],
+            cls_targets_at_level,
+            num_positives_sum,
+            alpha=params['alpha'],
+            gamma=params['gamma']))
+    box_losses.append(
+        _box_loss(
+            box_outputs[level],
+            box_targets_at_level,
+            num_positives_sum,
+            delta=params['delta']))
+  map_loss = _segmentation_loss(map_outputs, 
+                              labels['mask'],
+                              params)    
+  # Sum per level losses to total loss.
+  cls_loss = tf.add_n(cls_losses)
+  box_loss = tf.add_n(box_losses)
+  total_loss = cls_loss + params['box_loss_weight'] * box_loss + map_loss 
+  return total_loss, cls_loss, box_loss, map_loss
+
 def _segmentation_loss(logits, labels, params):
   """Compute segmentation loss. So far it's only for single scale.
 
@@ -206,72 +266,22 @@ def _segmentation_loss(logits, labels, params):
   scaled_labels = labels[:, 0::stride, 0::stride]
 
   scaled_labels = tf.cast(scaled_labels, tf.float32)
-  #Binary-cross entropy
+#  scaled_labels = scaled_labels[:, :, :, 0]
+#  bit_mask = tf.not_equal(scaled_labels, params['ignore_label'])
+  # Assign ignore label to background to avoid error when computing
+  # Cross entropy loss.
+#  scaled_labels = tf.where(bit_mask, scaled_labels,
+#                           tf.zeros_like(scaled_labels))
+
+#  normalizer = tf.reduce_sum(tf.to_float(bit_mask))
+#  cross_entropy_loss = tf.nn.sparse_softmax_cross_entropy_with_logits(
+#      labels=scaled_labels, logits=logits)
+#  mse = tf.losses.mean_squared_error(scaled_labels, logits)
   mse = tf.nn.sigmoid_cross_entropy_with_logits(labels=scaled_labels, logits=logits)
 #  cross_entropy_loss *= tf.to_float(bit_mask)
   loss = tf.reduce_mean(mse)#/ normalizer
 #  loss = tf.Print(loss, [loss], summarize=20)
   return loss
-
-
-def detection_loss(cls_outputs, box_outputs, map_outputs, labels, params):
-  """Computes total detection loss.
-
-  Computes total detection loss including box and class loss from all levels.
-  Args:
-    cls_outputs: an OrderDict with keys representing levels and values
-      representing logits in [batch_size, height, width, num_anchors].
-    box_outputs: an OrderDict with keys representing levels and values
-      representing box regression targets in
-      [batch_size, height, width, num_anchors * 4].
-    labels: the dictionary that returned from dataloader that includes
-      groundturth targets.
-    params: the dictionary including training parameters specified in
-      default_haprams function in this file.
-  Returns:
-    total_loss: an integar tensor representing total loss reducing from
-      class and box losses from all levels.
-    cls_loss: an integar tensor representing total class loss.
-    box_loss: an integar tensor representing total box regression loss.
-  """
-  # Sum all positives in a batch for normalization and avoid zero
-  # num_positives_sum, which would lead to inf loss during training
-  num_positives_sum = tf.reduce_sum(labels['mean_num_positives']) + 1.0
-  levels = cls_outputs.keys()
-
-  cls_losses = []
-  box_losses = []
-  for level in levels:
-    # Onehot encoding for classification labels.
-    cls_targets_at_level = tf.one_hot(
-        labels['cls_targets_%d' % level],
-        params['num_classes'])
-    bs, width, height, _, _ = cls_targets_at_level.get_shape().as_list()
-    cls_targets_at_level = tf.reshape(cls_targets_at_level,
-                                      [bs, width, height, -1])
-    box_targets_at_level = labels['box_targets_%d' % level]
-    cls_losses.append(
-        _classification_loss(
-            cls_outputs[level],
-            cls_targets_at_level,
-            num_positives_sum,
-            alpha=params['alpha'],
-            gamma=params['gamma']))
-    box_losses.append(
-        _box_loss(
-            box_outputs[level],
-            box_targets_at_level,
-            num_positives_sum,
-            delta=params['delta']))
-  map_loss = _segmentation_loss(map_outputs, 
-                              labels['mask'],
-                              params)    
-
-  # Sum per level losses to total loss.
-  cls_loss = tf.add_n(cls_losses)
-  box_loss = tf.add_n(box_losses)
-  total_loss = cls_loss + params['box_loss_weight'] * box_loss + map_loss 
-  return total_loss, cls_loss, box_loss, map_loss
 
 
 def add_metric_fn_inputs(params, cls_outputs, box_outputs, metric_fn_inputs):
@@ -387,6 +397,7 @@ def _model_fn(features, labels, mode, params, model, variable_filter_fn=None):
         num_classes=params['num_classes'],
         num_anchors=len(params['aspect_ratios'] * params['num_scales']),
         resnet_depth=params['resnet_depth'],
+        use_nearest_upsampling = params['use_nearest_upsampling'],
         is_training_bn=params['is_training_bn'])
 
   if params['use_bfloat16']:
@@ -402,15 +413,16 @@ def _model_fn(features, labels, mode, params, model, variable_filter_fn=None):
     levels = cls_outputs.keys()
 
   # First check if it is in PREDICT mode.
-  if mode == tf.estimator.ModeKeys.PREDICT:
+  if mode == tf.estimator.ModeKeys.PREDICT: 
     predictions = {
         'image': features,
     }
     for level in levels:
       predictions['cls_outputs_%d' % level] = cls_outputs[level]
       predictions['box_outputs_%d' % level] = box_outputs[level]
-    predictions['map_outputs'] = map_outputs
-    
+    predictions['map_outputs'] = tf.sigmoid(map_outputs)
+                                          
+        
     return tf.estimator.EstimatorSpec(mode=mode, predictions=predictions)
 
   # Load pretrained model from checkpoint.
@@ -424,6 +436,28 @@ def _model_fn(features, labels, mode, params, model, variable_filter_fn=None):
       return tf.train.Scaffold()
   else:
     scaffold_fn = None
+    
+  if params['pre_trained'] and mode == tf.estimator.ModeKeys.TRAIN:
+      
+      def scaffold_fn():
+          """Loads pretrained model through scaffold function."""
+          assign_map = {}
+          for i in range(4):
+              var = 'retinanet/class_net/class-{}/'.format(i)
+              assign_map[var] = var
+              for j in range(3, 8):
+                  var = 'retinanent/class_net/class-{}-bn-{}/'.format(i, j)
+                  assign_map[var] = var
+          assign_map2 = {'resnet50/': 'resnet50/',
+                         'resnet_fpn/':'resnet_fpn/',
+                         'retinanet/box_net/': 'retinanet/box_net/',
+                         'retinanet/seg_net/': 'retinanet/seg_net/',}
+          assign_map.update(assign_map2)
+          tf.train.init_from_checkpoint(params['pre_trained'],
+                                        assign_map)
+          return tf.train.Scaffold()
+  else:
+      scaffold_fn = None
 
   # Set up training loss and learning rate.
   update_learning_rate_schedule_parameters(params)
@@ -444,7 +478,7 @@ def _model_fn(features, labels, mode, params, model, variable_filter_fn=None):
     optimizer = tf.train.MomentumOptimizer(
         learning_rate, momentum=params['momentum'])
     if params['use_tpu']:
-      optimizer = tf.contrib.tpu.CrossShardOptimizer(optimizer)
+      optimizer = tf.contrib.tpu.CrossShardOptimizer(optimizer) 
 
     # Batch norm requires update_ops to be added as a train_op dependency.
     update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
@@ -522,7 +556,7 @@ def retinanet_model_fn(features, labels, mode, params):
 def default_hparams():
   return tf.contrib.training.HParams(
       # input preprocessing parameters
-      image_size=640,
+      image_size=512,
       input_rand_hflip=True,
       train_scale_min=1.0,
       train_scale_max=1.0,
@@ -540,17 +574,19 @@ def default_hparams():
       is_training_bn=True,
       # optimization
       momentum=0.9,
-      learning_rate=0.02,
-      lr_warmup_init=0.002,
+      learning_rate=0.08,
+      lr_warmup_init=0.008,     
       lr_warmup_epoch=1.0,
-      first_lr_drop_epoch=16.0,
-      second_lr_drop_epoch=26.0,
+      first_lr_drop_epoch=8.0,
+      second_lr_drop_epoch=11.0,
       # classification loss
       alpha=0.25,
       gamma=1.5,
       # localization loss
       delta=0.1,
-      box_loss_weight=50.0,
+      box_loss_weight=50.0, 
       # enable bfloat
-      use_bfloat16=True,
+      use_bfloat16=False,
+      use_nearest_upsampling=True,
+      ignore_label = 255
   )
