@@ -206,10 +206,13 @@ def _segmentation_loss(logits, labels, params):
   scaled_labels = labels[:, 0::stride, 0::stride]
 
   scaled_labels = tf.cast(scaled_labels, tf.float32)
+  #Bit mask
+  bit_mask = tf.not_equal(scaled_labels, 0)
   #Binary-cross entropy
   mse = tf.nn.sigmoid_cross_entropy_with_logits(labels=scaled_labels, logits=logits)
+  normalizer = tf.reduce_sum(tf.to_float(bit_mask))
 #  cross_entropy_loss *= tf.to_float(bit_mask)
-  loss = tf.reduce_mean(mse)#/ normalizer
+  loss = tf.reduce_mean(mse)/normalizer
 #  loss = tf.Print(loss, [loss], summarize=20)
   return loss
 
