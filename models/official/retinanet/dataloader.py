@@ -337,9 +337,11 @@ class InputReader(object):
           input_processor.set_training_random_scale_factors(
               params['train_scale_min'], params['train_scale_max'])
           mask = input_processor.resize_and_crop_label(0)
+          mask = tf.cast(tf.not_equal(mask, 0), tf.float32)
         else:
           input_processor.set_scale_factors_to_output_size()
           mask = input_processor.resize_and_crop_label(0)
+          mask = tf.cast(tf.not_equal(mask, 0), tf.float32)
         image = input_processor.resize_and_crop_image()
         boxes, classes = input_processor.resize_and_crop_boxes()
 
