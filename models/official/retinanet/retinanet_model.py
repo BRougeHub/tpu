@@ -213,7 +213,6 @@ def _segmentation_loss(logits, labels, params):
   normalizer = tf.reduce_sum(tf.to_float(bit_mask))
 #  cross_entropy_loss *= tf.to_float(bit_mask)
   loss = tf.reduce_mean(mse)/normalizer
-  loss = tf.Print(loss, [loss])
 #  loss = tf.Print(loss, [loss], summarize=20)
   return loss
 
