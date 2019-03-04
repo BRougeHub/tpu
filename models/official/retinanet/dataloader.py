@@ -28,7 +28,7 @@ import anchors
 from object_detection import preprocessor
 from object_detection import tf_example_decoder
 
-MAX_NUM_INSTANCES = 100
+MAX_NUM_INSTANCES = 220
 
 
 class InputProcessor(object):
@@ -335,13 +335,13 @@ class InputReader(object):
           input_processor.random_horizontal_flip()
         if self._is_training:
           input_processor.set_training_random_scale_factors(
-              params['train_scale_min'], params['train_scale_max'])
+              params['train_scale_min'], params['train_scale_max']) 
           mask = input_processor.resize_and_crop_label(0)
           mask = tf.cast(tf.not_equal(mask, 0), tf.float32)
         else:
           input_processor.set_scale_factors_to_output_size()
           mask = input_processor.resize_and_crop_label(0)
-          mask = tf.cast(tf.not_equal(mask, 0), tf.float32)
+          mask = tf.cast(tf.not_equal(mask, 0), tf.float32) 
         image = input_processor.resize_and_crop_image()
         boxes, classes = input_processor.resize_and_crop_boxes()
 
@@ -457,12 +457,11 @@ class SegmentationInputReader(object):
         image = input_processor.resize_and_crop_image()
 
         # Set padding to background (class=0) during training.
-        if self._is_training:
-          label = input_processor.resize_and_crop_label(0)
-        else:
-            label = input_processor.resize_and_crop_label(params['ignore_label'])
+        label = input_processor.resize_and_crop_label(0)
+        label = tf.cast(tf.not_equal(label, 0), tf.float32)
         if params['use_bfloat16']:
           image = tf.cast(image, dtype=tf.bfloat16)
+          label = tf.cast(label, dtype=tf.bfloat16)
         return image, label
 
     batch_size = params['batch_size']
