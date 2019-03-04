@@ -94,7 +94,9 @@ def main(argv):
         project=FLAGS.gcp_project)
     tpu_grpc_url = tpu_cluster_resolver.get_master()
     tf.Session.reset(tpu_grpc_url)
-
+  else:
+      tpu_cluster_resolver=None
+      
   if FLAGS.mode in ('train',
                     'train_and_eval') and FLAGS.training_file_pattern is None:
     raise RuntimeError('You must specify --training_file_pattern for training.')
@@ -110,7 +112,7 @@ def main(argv):
   params = dict(
       hparams.values(),
       num_shards=FLAGS.num_shards,
-      num_examples_per_epoch=FLAGS.num_examples_per_epoch,
+      num_examples_per_epoch=FLAGS.num_examples_per_epoch,  
       use_tpu=FLAGS.use_tpu,
       resnet_checkpoint=FLAGS.resnet_checkpoint,
       mode=FLAGS.mode,
@@ -131,7 +133,7 @@ def main(argv):
               tf.contrib.tpu.InputPipelineConfig.PER_HOST_V2)
       ))
 
-  model_fn = retinanet_segmentation_model.segmentation_model_fn
+  model_fn = retinanet_segmentation_model.panoptic_model_fn
 
   # TPU Estimator
   eval_params = dict(
@@ -160,7 +162,7 @@ def main(argv):
       # Run evaluation on CPU after training finishes.
 
       eval_estimator = tf.contrib.tpu.TPUEstimator(
-          model_fn=retinanet_segmentation_model.segmentation_model_fn,
+          model_fn=retinanet_segmentation_model.panoptic_model_fn,
           use_tpu=FLAGS.use_tpu,
           train_batch_size=FLAGS.train_batch_size,
           eval_batch_size=FLAGS.eval_batch_size,
@@ -175,7 +177,7 @@ def main(argv):
   elif FLAGS.mode == 'eval':
 
     eval_estimator = tf.contrib.tpu.TPUEstimator(
-        model_fn=retinanet_segmentation_model.segmentation_model_fn,
+        model_fn=retinanet_segmentation_model.panoptic_model_fn,
         use_tpu=FLAGS.use_tpu,
         train_batch_size=FLAGS.train_batch_size,
         eval_batch_size=FLAGS.eval_batch_size,
@@ -224,14 +226,14 @@ def main(argv):
 
   elif FLAGS.mode == 'train_and_eval':
     train_estimator = tf.contrib.tpu.TPUEstimator(
-        model_fn=retinanet_segmentation_model.segmentation_model_fn,
+        model_fn=retinanet_segmentation_model.panoptic_model_fn,
         use_tpu=FLAGS.use_tpu,
         train_batch_size=FLAGS.train_batch_size,
         config=run_config,
         params=params)
 
     eval_estimator = tf.contrib.tpu.TPUEstimator(
-        model_fn=retinanet_segmentation_model.segmentation_model_fn,
+        model_fn=retinanet_segmentation_model.panoptic_model_fn,
         use_tpu=FLAGS.use_tpu,
         train_batch_size=FLAGS.train_batch_size,
         eval_batch_size=FLAGS.eval_batch_size,
