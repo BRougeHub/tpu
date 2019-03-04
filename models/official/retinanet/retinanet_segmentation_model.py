@@ -88,8 +88,6 @@ def _panoptic_loss(logits, labels, params):
   scaled_labels = labels[:, 0::stride, 0::stride]
 
   scaled_labels = tf.cast(scaled_labels, tf.float32)
-  scaled_labels = tf.Print(scaled_labels, [tf.reduce_max(scaled_labels),
-                                           tf.reduce_min(scaled_labels)])
 #  scaled_labels = scaled_labels[:, :, :, 0]
   bit_mask = tf.not_equal(scaled_labels, 0)
   # Assign ignore label to background to avoid error when computing
@@ -105,7 +103,6 @@ def _panoptic_loss(logits, labels, params):
   mse = tf.nn.sigmoid_cross_entropy_with_logits(labels=scaled_labels, logits=logits)
   
   loss = tf.reduce_sum(mse)/ normalizer
-  loss = tf.Print(loss, [loss])
 #  loss = tf.Print(loss, [loss], summarize=20)
   
   return loss
