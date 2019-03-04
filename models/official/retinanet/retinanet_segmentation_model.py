@@ -303,5 +303,5 @@ def default_hparams():
       train_scale_min=0.75, 
       train_scale_max=1.5,
       # enable mixed-precision training (using bfloat16 on TPU)
-      use_bfloat16=False,
+      use_bfloat16=True,
   )
