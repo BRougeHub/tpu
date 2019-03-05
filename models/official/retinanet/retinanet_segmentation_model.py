@@ -88,23 +88,18 @@ def _panoptic_loss(logits, labels, params):
   scaled_labels = labels[:, 0::stride, 0::stride]
 
   scaled_labels = tf.cast(scaled_labels, tf.float32)
-#  scaled_labels = scaled_labels[:, :, :, 0]
-  bit_mask = tf.not_equal(scaled_labels, 0)
+  #scaled_labels = scaled_labels[:, :, :, 0]
+  bit_mask = tf.not_equal(scaled_labels, params['ignore_label'])
   # Assign ignore label to background to avoid error when computing
   # Cross entropy loss.
-#  scaled_labels = tf.where(bit_mask, scaled_labels,
-#                           tf.zeros_like(scaled_labels))
+  scaled_labels = tf.where(bit_mask, scaled_labels,
+                           tf.zeros_like(scaled_labels))
 
   normalizer = tf.reduce_sum(tf.to_float(bit_mask))
-#  normalizer = tf.Print(normalizer, [normalizer])
-#  cross_entropy_loss = tf.nn.sparse_softmax_cross_entropy_with_logits(
-#      labels=scaled_labels, logits=logits)
-#  mse = tf.losses.mean_squared_error(scaled_labels, logits)
-  mse = tf.nn.sigmoid_cross_entropy_with_logits(labels=scaled_labels, logits=logits)
-  
-  loss = tf.reduce_sum(mse)/ normalizer
-#  loss = tf.Print(loss, [loss], summarize=20)
-  
+  cross_entropy_loss = tf.nn.sigmoid_cross_entropy_with_logits(
+      labels=scaled_labels, logits=logits)
+  cross_entropy_loss *= tf.to_float(bit_mask)
+  loss = tf.reduce_sum(cross_entropy_loss) / normalizer
   return loss
   
 
@@ -281,7 +276,7 @@ def default_hparams():
       # model architecture
       min_level=3,
       max_level=5,
-      resnet_depth=101,
+      resnet_depth=50,
       # is batchnorm training mode
       is_training_bn=True,      
       # optimization
@@ -293,7 +288,7 @@ def default_hparams():
       second_lr_drop_epoch=35.,
       weight_decay=0.00001,
       # classification loss
-      ignore_label=255,
+      ignore_label=0,
       loss_weight=1.0,
       # resnet checkpoint
       resnet_checkpoint=None,
