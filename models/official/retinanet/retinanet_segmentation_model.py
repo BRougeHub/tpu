@@ -52,18 +52,17 @@ def _segmentation_loss(logits, labels, params):
   stride = 2**params['min_level']
   scaled_labels = labels[:, 0::stride, 0::stride]
 
-  scaled_labels = tf.cast(scaled_labels, tf.int32)
-  scaled_labels = scaled_labels[:, :, :, 0]
+  scaled_labels = tf.cast(scaled_labels, tf.float32)
+#  scaled_labels = scaled_labels[:, :, :, 0]
   bit_mask = tf.not_equal(scaled_labels, params['ignore_label'])
   # Assign ignore label to background to avoid error when computing
   # Cross entropy loss.
   scaled_labels = tf.where(bit_mask, scaled_labels,
                            tf.zeros_like(scaled_labels))
-
   normalizer = tf.reduce_sum(tf.to_float(bit_mask))
-  cross_entropy_loss = tf.nn.sparse_softmax_cross_entropy_with_logits(
+  cross_entropy_loss = tf.nn.sigmoid_cross_entropy_with_logits(
       labels=scaled_labels, logits=logits)
-  cross_entropy_loss *= tf.to_float(bit_mask)
+#  cross_entropy_loss *= tf.to_float(bit_mask)
   loss = tf.reduce_sum(cross_entropy_loss) / normalizer
   return loss
 
@@ -165,7 +164,7 @@ def _model_fn(features, labels, mode, params, model, variable_filter_fn=None):
       params['lr_warmup_step'], params['first_lr_drop_step'],
       params['second_lr_drop_step'], global_step)
 
-  cls_loss = _panoptic_loss(cls_outputs, labels, params)
+  cls_loss = _segmentation_loss(cls_outputs, labels, params)
   weight_decay_loss = params['weight_decay'] * tf.add_n(
       [tf.nn.l2_loss(v) for v in tf.trainable_variables()
        if 'batch_normalization' not in v.name])
