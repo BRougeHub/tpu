@@ -48,22 +48,28 @@ def _segmentation_loss(logits, labels, params):
     A float tensor representing total classification loss. The loss is
       normalized by the total non-ignored pixels.
   """
-  # Downsample labels by the min_level feature stride.
+ # Downsample labels by the min_level feature stride.
   stride = 2**params['min_level']
   scaled_labels = labels[:, 0::stride, 0::stride]
 
-  scaled_labels = tf.cast(scaled_labels, tf.float32)
-#  scaled_labels = scaled_labels[:, :, :, 0]
+  scaled_labels = tf.cast(scaled_labels, tf.int32)
+  scaled_labels = scaled_labels[:, :, :, 0]
+#  scaled_labels = tf.Print(scaled_labels, [tf.shape(scaled_labels)[1:],
+#                                           tf.shape(logits)[1:]])
   bit_mask = tf.not_equal(scaled_labels, params['ignore_label'])
   # Assign ignore label to background to avoid error when computing
   # Cross entropy loss.
   scaled_labels = tf.where(bit_mask, scaled_labels,
                            tf.zeros_like(scaled_labels))
+
   normalizer = tf.reduce_sum(tf.to_float(bit_mask))
-  cross_entropy_loss = tf.nn.sigmoid_cross_entropy_with_logits(
+  cross_entropy_loss = tf.nn.sparse_softmax_cross_entropy_with_logits(
       labels=scaled_labels, logits=logits)
-#  cross_entropy_loss *= tf.to_float(bit_mask)
+  cross_entropy_loss *= tf.to_float(bit_mask)
+#  cross_entropy_loss = tf.Print(cross_entropy_loss, [tf.where(tf.to_float(tf.is_nan(cross_entropy_loss)))],
+#                                                     summarize=100)
   loss = tf.reduce_sum(cross_entropy_loss) / normalizer
+#  loss = tf.Print(loss, [loss])
   return loss
 
 def _panoptic_loss(logits, labels, params):
@@ -271,9 +277,9 @@ def default_hparams():
       image_size=512,
       input_rand_hflip=True,
       # dataset specific parameters
-      num_classes=21,
+      num_classes=90,
       # model architecture
-      min_level=3,
+      min_level=2,
       max_level=5,
       resnet_depth=50,
       # is batchnorm training mode
@@ -287,7 +293,7 @@ def default_hparams():
       second_lr_drop_epoch=35.,
       weight_decay=0.00001,
       # classification loss
-      ignore_label=0,
+      ignore_label=255,
       loss_weight=1.0,
       # resnet checkpoint
       resnet_checkpoint=None,
