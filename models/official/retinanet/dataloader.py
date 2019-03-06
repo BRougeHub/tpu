@@ -457,8 +457,12 @@ class SegmentationInputReader(object):
         image = input_processor.resize_and_crop_image()
 
         # Set padding to background (class=0) during training.
-        label = input_processor.resize_and_crop_label(0)
-        label = tf.cast(tf.not_equal(label, 0), tf.float32)
+        if self._is_training:
+          label = input_processor.resize_and_crop_label(0)
+          label = tf.cast(label, tf.int32)
+        else:
+          label = input_processor.resize_and_crop_label(params['ignore_label']) 
+          label = tf.cast(label, tf.int32)
         if params['use_bfloat16']:
           image = tf.cast(image, dtype=tf.bfloat16)
           label = tf.cast(label, dtype=tf.bfloat16)
