@@ -52,19 +52,19 @@ def _segmentation_loss(logits, labels, params):
   stride = 2**params['min_level']
   scaled_labels = labels[:, 0::stride, 0::stride]
 
-  scaled_labels = tf.cast(scaled_labels, tf.int32)
-  scaled_labels = scaled_labels[:, :, :, 0]
+  scaled_labels = tf.cast(scaled_labels, tf.float32)
+#  scaled_labels = scaled_labels[:, :, :, 0]
   bit_mask = tf.not_equal(scaled_labels, params['ignore_label'])
   # Assign ignore label to background to avoid error when computing
   # Cross entropy loss.
   scaled_labels = tf.where(bit_mask, scaled_labels,
                            tf.zeros_like(scaled_labels))
-
   normalizer = tf.reduce_sum(tf.to_float(bit_mask))
-  cross_entropy_loss = tf.nn.sparse_softmax_cross_entropy_with_logits(
+  cross_entropy_loss = tf.nn.sigmoid_cross_entropy_with_logits(
       labels=scaled_labels, logits=logits)
-  cross_entropy_loss *= tf.to_float(bit_mask)
+#  cross_entropy_loss *= tf.to_float(bit_mask)
   loss = tf.reduce_sum(cross_entropy_loss) / normalizer
+  loss = tf.Print(loss, [loss])
   return loss
 
 def _panoptic_loss(logits, labels, params):
@@ -73,7 +73,7 @@ def _panoptic_loss(logits, labels, params):
   Args:
     logits: A tensor specifies the logits as returned from model function.
       The tensor size is [batch_size, height, width, 1].
-      The height_l and width_l depends on the min_level feature resolution.
+      The height_l and      width_l depends on the min_level feature resolution.
     labels: A tensor specifies the groundtruth targets "cls_targets",
       as returned from dataloader. The tensor has the same spatial resolution
       as input image with size [batch_size, height, width, 1].
@@ -83,22 +83,21 @@ def _panoptic_loss(logits, labels, params):
     A float tensor representing total classification loss. The loss is
       normalized by the total non-ignored pixels.
   """
-  # Downsample labels by the min_level feature stride.
   stride = 1
   scaled_labels = labels[:, 0::stride, 0::stride]
 
   scaled_labels = tf.cast(scaled_labels, tf.float32)
-  #scaled_labels = scaled_labels[:, :, :, 0]
-  bit_mask = tf.not_equal(scaled_labels, params['ignore_label'])
+#  scaled_labels = scaled_labels[:, :, :, 0]
+  bit_mask = tf.not_equal(scaled_labels, params['ignore_label'])    
   # Assign ignore label to background to avoid error when computing
   # Cross entropy loss.
-  #scaled_labels = tf.where(bit_mask, scaled_labels,
-   #                        tf.zeros_like(scaled_labels))
+  scaled_labels = tf.where(bit_mask, scaled_labels,
+                           tf.zeros_like(scaled_labels))
 
-  normalizer = tf.reduce_sum(tf.to_float(bit_mask))
+  normalizer = tf.reduce_sum(tf.to_float(bit_mask)) 
   cross_entropy_loss = tf.nn.sigmoid_cross_entropy_with_logits(
       labels=scaled_labels, logits=logits)
-  #cross_entropy_loss *= tf.to_float(bit_mask)
+  cross_entropy_loss *= tf.to_float(bit_mask)   
   loss = tf.reduce_sum(cross_entropy_loss) / normalizer
   return loss
   
@@ -122,10 +121,10 @@ def _model_fn(features, labels, mode, params, model, variable_filter_fn=None):
     tpu_spec: the TPUEstimatorSpec to run training, evaluation, or prediction.
   """
   def _model_outputs():
-    return model(
+    return model(       
         features,
         min_level=params['min_level'],
-        max_level=params['max_level'],
+        max_level=params['max_level'        ],
         num_classes=params['num_classes'],
         resnet_depth=params['resnet_depth'],
         is_training_bn=params['is_training_bn'])
@@ -140,9 +139,9 @@ def _model_fn(features, labels, mode, params, model, variable_filter_fn=None):
   # First check if it is in PREDICT mode.
   if mode == tf.estimator.ModeKeys.PREDICT:
     predictions = {
-        'image': features,
-        'cls_outputs': cls_outputs
-    }
+        'image': features,  
+        'map_outputs': cls_outputs
+    }   
     return tf.estimator.EstimatorSpec(mode=mode, predictions=predictions)
 
   # Load pretrained model from checkpoint.
@@ -165,7 +164,7 @@ def _model_fn(features, labels, mode, params, model, variable_filter_fn=None):
       params['lr_warmup_step'], params['first_lr_drop_step'],
       params['second_lr_drop_step'], global_step)
 
-  cls_loss = _panoptic_loss(cls_outputs, labels, params)
+  cls_loss = _segmentation_loss(cls_outputs, labels, params)
   weight_decay_loss = params['weight_decay'] * tf.add_n(
       [tf.nn.l2_loss(v) for v in tf.trainable_variables()
        if 'batch_normalization' not in v.name])
@@ -275,7 +274,7 @@ def default_hparams():
       num_classes=21,
       # model architecture
       min_level=3,
-      max_level=5,
+      max_level=5,  
       resnet_depth=50,
       # is batchnorm training mode
       is_training_bn=True,      
@@ -295,5 +294,5 @@ def default_hparams():
       train_scale_min=0.75, 
       train_scale_max=1.5,
       # enable mixed-precision training (using bfloat16 on TPU)
-      use_bfloat16=True,
+      use_bfloat16=False,
   )
