@@ -827,7 +827,7 @@ def retinanet_segmentation(features,
       fused_feature, is_training_bn, relu=True, init_zero=False)
   classes = tf.layers.conv2d(
       fused_feature,
-      1,
+      num_classes,
       kernel_size=(3, 3),
       bias_initializer=tf.zeros_initializer(),
       kernel_initializer=tf.random_normal_initializer(stddev=0.01),
