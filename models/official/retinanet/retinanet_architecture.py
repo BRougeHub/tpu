@@ -807,21 +807,22 @@ def retinanet_segmentation(features,
   """
   feats = resnet_fpn(features, min_level, max_level, resnet_depth,
                      is_training_bn, use_nearest_upsampling)
-
+    
+  map_outputs = {}
   with tf.variable_scope('class_net', reuse=tf.AUTO_REUSE):
     for level in range(min_level, max_level + 1):
-      feats[level] = segmentation_class_net(
+      map_outputs[level] = segmentation_class_net(
           feats[level], level, is_training_bn=is_training_bn)
       if level == min_level:
-        fused_feature = feats[level]
+        fused_feature = map_outputs[level]
       else:
         if use_nearest_upsampling:
           scale = level / min_level
-          feats[level] = nearest_upsampling(feats[level], scale)
+          map_outputs[level] = nearest_upsampling(map_outputs[level], scale)
         else:
-          feats[level] = resize_bilinear(   
-              feats[level], tf.shape(feats[min_level])[1:3], feats[level].dtype)
-        fused_feature += feats[level]
+          map_outputs[level] = resize_bilinear(   
+              map_outputs[level], tf.shape(feats[min_level])[1:3], map_outputs[level].dtype)
+        fused_feature += map_outputs[level]
   fused_feature = batch_norm_relu(
       fused_feature, is_training_bn, relu=True, init_zero=False)
   classes = tf.layers.conv2d(
@@ -861,16 +862,17 @@ def panoptic_segmentation(features,
   """
   feats = resnet_fpn(features, min_level, max_level, resnet_depth,
                      is_training_bn, use_nearest_upsampling)
+  map_outputs = {}
 
   with tf.variable_scope('panoptic_net', reuse=tf.AUTO_REUSE):
       for level in range(min_level, max_level+1):
-          feats[level]=panoptic_class_net(feats[level],
+          map_outputs[level]=panoptic_class_net(feats[level],
                level, is_training_bn=is_training_bn)
      
           if level == min_level:
-              fused_feature = feats[level]
+              fused_feature = map_outputs[level]
           else:
-              fused_feature += feats[level]
+              fused_feature += map_outputs[level]
   with tf.variable_scope('panoptic_blowup', reuse=tf.AUTO_REUSE):
       fused_feature = tf.layers.conv2d(
                       fused_feature,
