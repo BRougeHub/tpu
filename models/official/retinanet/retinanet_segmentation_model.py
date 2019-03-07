@@ -96,7 +96,7 @@ def _panoptic_loss(logits, labels, params):
   scaled_labels = scaled_labels[:, :, :, 0]
 #  scaled_labels = tf.Print(scaled_labels, [tf.shape(scaled_labels)[1:],
 #                                           tf.shape(logits)[1:]])
-  bit_mask = tf.not_equal(scaled_labels, params['ignore_label'])
+  bit_mask = tf.not_equal(scaled_labels, 0)
   # Assign ignore label to background to avoid error when computing
   # Cross entropy loss.
   scaled_labels = tf.where(bit_mask, scaled_labels,
@@ -105,7 +105,7 @@ def _panoptic_loss(logits, labels, params):
   normalizer = tf.reduce_sum(tf.to_float(bit_mask))
   cross_entropy_loss = tf.nn.sparse_softmax_cross_entropy_with_logits(
       labels=scaled_labels, logits=logits)
-  cross_entropy_loss *= tf.to_float(bit_mask)
+  #cross_entropy_loss *= tf.to_float(bit_mask)
 #  cross_entropy_loss = tf.Print(cross_entropy_loss, [tf.where(tf.to_float(tf.is_nan(cross_entropy_loss)))],
 #                                                     summarize=100)
   loss = tf.reduce_sum(cross_entropy_loss) / normalizer
