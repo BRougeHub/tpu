@@ -26,6 +26,7 @@ import absl.logging as _logging  # pylint: disable=unused-import
 import tensorflow as tf
 
 import dataloader
+import my_dataloader
 import retinanet_segmentation_model
 
 
@@ -60,13 +61,13 @@ flags.DEFINE_integer('eval_samples', 1449, 'The number of samples for '
                      'evaluation.')
 flags.DEFINE_integer(
     'iterations_per_loop', 100, 'Number of iterations per TPU training loop')
-flags.DEFINE_string(
+flags.DEFINE_string(    
     'training_file_pattern', None,
     'Glob for training data files (e.g., Pascal VOC train set)')
 flags.DEFINE_string(
     'validation_file_pattern', None,
     'Glob for evaluation tfrecords (e.g., Pascal VOC validation set)')
-flags.DEFINE_integer('num_examples_per_epoch', 10582,
+flags.DEFINE_integer('num_examples_per_epoch', 120000,
                      'Number of examples in one epoch')
 flags.DEFINE_integer('num_epochs', 45, 'Number of epochs for training')
 flags.DEFINE_string('mode', 'train_and_eval',
@@ -108,7 +109,7 @@ def main(argv):
   # Parse hparams
   hparams = retinanet_segmentation_model.default_hparams()
   hparams.parse(FLAGS.hparams)
-
+  
   params = dict(
       hparams.values(),
       num_shards=FLAGS.num_shards,
@@ -133,7 +134,7 @@ def main(argv):
               tf.contrib.tpu.InputPipelineConfig.PER_HOST_V2)
       ))
 
-  model_fn = retinanet_segmentation_model.segmentation_model_fn
+  model_fn = retinanet_segmentation_model.panoptic_model_fn
 
   # TPU Estimator
   eval_params = dict(
@@ -162,14 +163,14 @@ def main(argv):
       # Run evaluation on CPU after training finishes.
 
       eval_estimator = tf.contrib.tpu.TPUEstimator(
-          model_fn=retinanet_segmentation_model.segmentation_model_fn,
+          model_fn=retinanet_segmentation_model.panoptic_model_fn,
           use_tpu=FLAGS.use_tpu,
           train_batch_size=FLAGS.train_batch_size,
           eval_batch_size=FLAGS.eval_batch_size,
           config=run_config,
           params=eval_params)
       eval_results = eval_estimator.evaluate(
-          input_fn=dataloader.SegmentationInputReader(
+          input_fn=dataloader.panopticInputReader(
               FLAGS.validation_file_pattern, is_training=False),
           steps=FLAGS.eval_samples//FLAGS.eval_batch_size)
       tf.logging.info('Eval results: %s' % eval_results)
@@ -177,7 +178,7 @@ def main(argv):
   elif FLAGS.mode == 'eval':
 
     eval_estimator = tf.contrib.tpu.TPUEstimator(
-        model_fn=retinanet_segmentation_model.segmentation_model_fn,
+        model_fn=retinanet_segmentation_model.panoptic_model_fn,
         use_tpu=FLAGS.use_tpu,
         train_batch_size=FLAGS.train_batch_size,
         eval_batch_size=FLAGS.eval_batch_size,
@@ -226,14 +227,14 @@ def main(argv):
 
   elif FLAGS.mode == 'train_and_eval':
     train_estimator = tf.contrib.tpu.TPUEstimator(
-        model_fn=retinanet_segmentation_model.segmentation_model_fn,
+        model_fn=retinanet_segmentation_model.panoptic_model_fn,
         use_tpu=FLAGS.use_tpu,
         train_batch_size=FLAGS.train_batch_size,
         config=run_config,
         params=params)
 
     eval_estimator = tf.contrib.tpu.TPUEstimator(
-        model_fn=retinanet_segmentation_model.segmentation_model_fn,
+        model_fn=retinanet_segmentation_model.panoptic_model_fn,
         use_tpu=FLAGS.use_tpu,
         train_batch_size=FLAGS.train_batch_size,
         eval_batch_size=FLAGS.eval_batch_size,
@@ -254,9 +255,63 @@ def main(argv):
               FLAGS.validation_file_pattern, is_training=False),
           steps=FLAGS.eval_samples//FLAGS.eval_batch_size)
       tf.logging.info('Evaluation results: %s' % eval_results)
-
+  ####################################################################################
+  elif FLAGS.mode == 'predict':
+      
+      predict_params = dict(
+          params,
+          use_bfloat16=False
+          )
+      params = predict_params
+#          use_tpu=False,
+#          input_rand_hflip=False,
+#          resnet_checkpoint=None,
+#          is_training_bn=False,
+#          use_bfloat16=False,
+#      )
+      
+      def predict_input_fn(params):
+          height = 640  
+          width = 640
+          total_examples = 10
+          batch_size = 10
+          images = tf.random_uniform([total_examples, height, width, 3], minval=-1, 
+                                   maxval=1)
+          
+          dataset = tf.data.Dataset.from_tensor_slices(images)
+#          dataset = dataset.map(lambda images: {'image': images})
+        
+          dataset = dataset.batch(batch_size)   
+          
+          return dataset
+      
+      tpu_est = tf.contrib.tpu.TPUEstimator(
+        model_fn=retinanet_segmentation_model.panoptic_model_fn,        
+        use_tpu = False,
+        predict_batch_size = 2, 
+        config=run_config,  
+        params = params)                
+      
+      count = 0
+#      folder = 'C:/Users/{0}/OneDrive - Louisiana State University/TestProgram (1)/Combined/'.format(os.getlogin())
+#      for sub_folder in os.listdir(folder):
+#          sub_folder_path = os.path.join(folder, sub_folder, '*.jpg')
+#          path = 'C:/Users/{0}/OneDrive - Louisiana State University/New folder/detections/'.format(os.getlogin())
+      sub_folder_path='C:/Users/vmanee1/OneDrive - Louisiana State University/val/*.jpg'
+#      path = os.path.join(folder, sub_folder, 'retina')
+      path = 'C:/Users/vmanee1/Downloads/pred/'
+      if not os.path.isdir(path):       
+          os.mkdir(path)
+      saver = my_dataloader.SegmentationFolderSaver(path, params, threshold=0.4)
+      for item in tpu_est.predict(input_fn = my_dataloader.FolderReader(sub_folder_path,
+                                        shuffle=False)):        
+      
+          saver(item)   
+  #####################################################################################
   else:
     tf.logging.info('Mode not found.')
+    
+  
 
 if __name__ == '__main__':
   tf.logging.set_verbosity(tf.logging.INFO)
