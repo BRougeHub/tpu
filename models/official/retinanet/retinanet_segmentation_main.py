@@ -26,7 +26,6 @@ import absl.logging as _logging  # pylint: disable=unused-import
 import tensorflow as tf
 
 import dataloader
-import my_dataloader
 import retinanet_segmentation_model
 
 
@@ -170,7 +169,7 @@ def main(argv):
           config=run_config,
           params=eval_params)
       eval_results = eval_estimator.evaluate(
-          input_fn=dataloader.panopticInputReader(
+          input_fn=dataloader.SegmentationInputReader(
               FLAGS.validation_file_pattern, is_training=False),
           steps=FLAGS.eval_samples//FLAGS.eval_batch_size)
       tf.logging.info('Eval results: %s' % eval_results)
