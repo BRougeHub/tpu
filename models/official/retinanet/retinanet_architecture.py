@@ -876,7 +876,7 @@ def panoptic_segmentation(features,
   with tf.variable_scope('panoptic_blowup', reuse=tf.AUTO_REUSE):
       fused_feature = tf.layers.conv2d(
                       fused_feature,
-                      1,
+                      num_classes,
                       kernel_size=(1,1),
                       bias_initializer=tf.zeros_initializer(),
                       kernel_initializer=tf.random_normal_initializer(stddev=0.01),
