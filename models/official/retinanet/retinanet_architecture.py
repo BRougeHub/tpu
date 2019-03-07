@@ -839,7 +839,7 @@ def retinanet_segmentation(features,
 def panoptic_segmentation(features,
                            min_level=2,
                            max_level=5,
-                           num_classes=21,
+                           num_classes=91,
                            resnet_depth=50,
                            use_nearest_upsampling=False,
                            is_training_bn=False):
