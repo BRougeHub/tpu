@@ -89,7 +89,7 @@ def _panoptic_loss(logits, labels, params):
       normalized by the total non-ignored pixels.
   """
   # Downsample labels by the min_level feature stride.
-  stride = 1
+  stride = 2**params['min_level']
   scaled_labels = labels[:, 0::stride, 0::stride]
 
   scaled_labels = tf.cast(scaled_labels, tf.int32)
@@ -274,7 +274,8 @@ def panoptic_model_fn(features, labels, mode, params):
   """RetinaNet model."""
   return _model_fn(features, labels, mode, params,
                    model=retinanet_architecture.panoptic_segmentation,  
-                   variable_filter_fn=retinanet_architecture.remove_variables)
+                   #variable_filter_fn=retinanet_architecture.remove_variables
+                   variable_filter_fn=None)
 
 
 def default_hparams():
