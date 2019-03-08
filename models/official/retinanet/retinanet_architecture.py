@@ -882,8 +882,9 @@ def panoptic_segmentation(features,
                       kernel_initializer=tf.random_normal_initializer(stddev=0.01),
                       padding='same',
                       name='panoptic-final')
-      classes = resize_bilinear(fused_feature, tf.shape(features)[1:3],
-                                      fused_feature.dtype)
+      classes = fused_feature
+      #classes = resize_bilinear(fused_feature, tf.shape(features)[1:3],
+       #                               fused_feature.dtype)
       
   return classes
 
