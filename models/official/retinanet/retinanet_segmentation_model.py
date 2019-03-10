@@ -48,14 +48,12 @@ def _segmentation_loss(logits, labels, params):
     A float tensor representing total classification loss. The loss is
       normalized by the total non-ignored pixels.
   """
- # Downsample labels by the min_level feature stride.
-  stride = 2**params['min_level']
+  # Downsample labels by the min_level feature stride.
+  stride = 1
   scaled_labels = labels[:, 0::stride, 0::stride]
 
   scaled_labels = tf.cast(scaled_labels, tf.int32)
   scaled_labels = scaled_labels[:, :, :, 0]
-#  scaled_labels = tf.Print(scaled_labels, [tf.shape(scaled_labels)[1:],
-#                                           tf.shape(logits)[1:]])
   bit_mask = tf.not_equal(scaled_labels, params['ignore_label'])
   # Assign ignore label to background to avoid error when computing
   # Cross entropy loss.
@@ -66,52 +64,8 @@ def _segmentation_loss(logits, labels, params):
   cross_entropy_loss = tf.nn.sparse_softmax_cross_entropy_with_logits(
       labels=scaled_labels, logits=logits)
   cross_entropy_loss *= tf.to_float(bit_mask)
-#  cross_entropy_loss = tf.Print(cross_entropy_loss, [tf.where(tf.to_float(tf.is_nan(cross_entropy_loss)))],
-#                                                     summarize=100)
   loss = tf.reduce_sum(cross_entropy_loss) / normalizer
-#  loss = tf.Print(loss, [loss])
   return loss
-
-def _panoptic_loss(logits, labels, params):
-  """Compute segmentation loss. So far it's only for single scale.
-
-  Args:
-    logits: A tensor specifies the logits as returned from model function.
-      The tensor size is [batch_size, height, width, 1].
-      The height_l and width_l depends on the min_level feature resolution.
-    labels: A tensor specifies the groundtruth targets "cls_targets",
-      as returned from dataloader. The tensor has the same spatial resolution
-      as input image with size [batch_size, height, width, 1].
-    params: Dictionary including training parameters specified in
-      default_hparams function in this file.
-  Returns:
-    A float tensor representing total classification loss. The loss is
-      normalized by the total non-ignored pixels.
-  """
-  # Downsample labels by the min_level feature stride.
-  stride = 2**params['min_level']
-  scaled_labels = labels[:, 0::stride, 0::stride]
-
-  scaled_labels = tf.cast(scaled_labels, tf.int32)
-  scaled_labels = scaled_labels[:, :, :, 0]
-#  scaled_labels = tf.Print(scaled_labels, [tf.shape(scaled_labels)[1:],
-#                                           tf.shape(logits)[1:]])
-  bit_mask = tf.not_equal(scaled_labels, 0)
-  # Assign ignore label to background to avoid error when computing
-  # Cross entropy loss.
-  scaled_labels = tf.where(bit_mask, scaled_labels,
-                           tf.zeros_like(scaled_labels))
-
-  normalizer = tf.reduce_sum(tf.to_float(bit_mask))
-  cross_entropy_loss = tf.nn.sparse_softmax_cross_entropy_with_logits(
-      labels=scaled_labels, logits=logits)
-  #cross_entropy_loss *= tf.to_float(bit_mask)
-#  cross_entropy_loss = tf.Print(cross_entropy_loss, [tf.where(tf.to_float(tf.is_nan(cross_entropy_loss)))],
-#                                                     summarize=100)
-  loss = tf.reduce_sum(cross_entropy_loss) / normalizer
-#  loss = tf.Print(loss, [loss])
-  return loss
-  
 
 
 def _model_fn(features, labels, mode, params, model, variable_filter_fn=None):
@@ -175,7 +129,7 @@ def _model_fn(features, labels, mode, params, model, variable_filter_fn=None):
       params['lr_warmup_step'], params['first_lr_drop_step'],
       params['second_lr_drop_step'], global_step)
 
-  cls_loss = _panoptic_loss(cls_outputs, labels, params)
+  cls_loss = _segmentation_loss(cls_outputs, labels, params)
   weight_decay_loss = params['weight_decay'] * tf.add_n(
       [tf.nn.l2_loss(v) for v in tf.trainable_variables()
        if 'batch_normalization' not in v.name])
@@ -263,33 +217,31 @@ def _model_fn(features, labels, mode, params, model, variable_filter_fn=None):
       scaffold_fn=scaffold_fn,
       )
 
+def panoptic_model_fn(features, labels, mode, params):
+  """RetinaNet model."""
+  return _model_fn(features, labels, mode, params,
+                   model=retinanet_architecture.panoptic_segmentation,
+                   variable_filter_fn=retinanet_architecture.remove_variables)
 
 def segmentation_model_fn(features, labels, mode, params):
   """RetinaNet model."""
   return _model_fn(features, labels, mode, params,
                    model=retinanet_architecture.retinanet_segmentation,
                    variable_filter_fn=retinanet_architecture.remove_variables)
-  
-def panoptic_model_fn(features, labels, mode, params):
-  """RetinaNet model."""
-  return _model_fn(features, labels, mode, params,
-                   model=retinanet_architecture.panoptic_segmentation,  
-                   #variable_filter_fn=retinanet_architecture.remove_variables
-                   variable_filter_fn=None)
 
 
 def default_hparams():
   return tf.contrib.training.HParams(
-      image_size=512,
+      image_size=513,
       input_rand_hflip=True,
       # dataset specific parameters
-      num_classes=91,
+      num_classes=21,
       # model architecture
-      min_level=2,
+      min_level=3,
       max_level=5,
       resnet_depth=50,
       # is batchnorm training mode
-      is_training_bn=True,      
+      is_training_bn=True,
       # optimization
       momentum=0.9,
       learning_rate=0.02,
@@ -303,7 +255,7 @@ def default_hparams():
       loss_weight=1.0,
       # resnet checkpoint
       resnet_checkpoint=None,
-      train_scale_min=0.75, 
+      train_scale_min=0.75,
       train_scale_max=1.5,
       # enable mixed-precision training (using bfloat16 on TPU)
       use_bfloat16=True,
