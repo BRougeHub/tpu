@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-    
+
 """Tensorflow Example proto decoder for object detection.
 
 A decoder to decode string tensors containing serialized tensorflow.Example
@@ -55,7 +55,7 @@ class TfExampleDecoder(object):
             tf.VarLenFeature(tf.float32),
         'image/object/class/label':
             tf.VarLenFeature(tf.int64),
-        'image/object/class/text':  
+        'image/object/class/text':
             tf.VarLenFeature(tf.string),
         'image/object/area':
             tf.VarLenFeature(tf.float32),
@@ -67,12 +67,6 @@ class TfExampleDecoder(object):
             tf.VarLenFeature(tf.int64),
         'image/object/weight':
             tf.VarLenFeature(tf.float32),
-        #Mask
-        'image/object/mask':
-            tf.FixedLenFeature((), tf.string, default_value=''),  
-        'image/object/format':
-            tf.FixedLenFeature((), tf.string, default_value='png')
-        
     }
     self.items_to_handlers = {
         'image': slim_example_decoder.Image(
@@ -97,10 +91,6 @@ class TfExampleDecoder(object):
             slim_example_decoder.Tensor('image/object/group_of')),
         'groundtruth_weights': (
             slim_example_decoder.Tensor('image/object/weight')),
-        'labels_class': slim_example_decoder.Image(
-            image_key='image/object/mask',
-            format_key='image/object/format',
-            channels=1)
     }
     label_handler = slim_example_decoder.Tensor('image/object/class/label')
     self.items_to_handlers['groundtruth_classes'] = label_handler
@@ -179,22 +169,21 @@ class TfExampleSegmentationDecoder(object):
             tf.FixedLenFeature((), tf.string, default_value='jpeg'),
         'image/height':
             tf.FixedLenFeature((), tf.int64, default_value=0),
-        'image/width':  
+        'image/width':
             tf.FixedLenFeature((), tf.int64, default_value=0),
-        #Mask
-        'image/object/mask':
-            tf.FixedLenFeature((), tf.string, default_value=''),  
-        'image/object/format':
-            tf.FixedLenFeature((), tf.string, default_value='png')
+        'image/segmentation/class/encoded':
+            tf.FixedLenFeature((), tf.string, default_value=''),
+        'image/segmentation/class/format':
+            tf.FixedLenFeature((), tf.string, default_value='png'),
     }
     self.items_to_handlers = {
         'image': slim_example_decoder.Image(
             image_key='image/encoded', format_key='image/format', channels=3),
         'labels_class': slim_example_decoder.Image(
-            image_key='image/object/mask',
-            format_key='image/object/format',
-            channels=1) 
-    }   
+            image_key='image/segmentation/class/encoded',
+            format_key='image/segmentation/class/format',
+            channels=1)
+    }
 
   def decode(self, tf_example_string_tensor):
     """Decodes serialized tensorflow example and returns a tensor dictionary.
