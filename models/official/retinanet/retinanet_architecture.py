@@ -839,7 +839,7 @@ def retinanet_segmentation(features,
 def panoptic_segmentation(features,
                            min_level=2,
                            max_level=5,
-                           num_classes=91,
+                           num_classes=21,
                            resnet_depth=50,
                            use_nearest_upsampling=False,
                            is_training_bn=False):
@@ -883,8 +883,8 @@ def panoptic_segmentation(features,
                       padding='same',
                       name='panoptic-final')
       classes = fused_feature
-      #classes = resize_bilinear(fused_feature, tf.shape(features)[1:3],
-       #                               fused_feature.dtype)
+      classes = resize_bilinear(fused_feature, tf.shape(features)[1:3],
+                                fused_feature.dtype)
       
   return classes
 
