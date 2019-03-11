@@ -517,7 +517,8 @@ def box_net(images, level, num_anchors=6, is_training_bn=False):
 def panoptic_class_net(images,
                        level,
                        num_channels=128,
-                       is_training_bn=False):
+                       is_training_bn=False,
+                       dtype):
     """
     Segmentation Feature Extraction Module.
     
@@ -557,7 +558,7 @@ def panoptic_class_net(images,
             images = batch_norm_relu(images, is_training_bn, relu=True,
                                      init_zero=False, 
                                      name='panoptic-{}-bn-{}'.format(level, i))
-            images = resize_bilinear(images, tf.shape(images)[1:3]*2, images.dtype)
+            images = resize_bilinear(images, tf.shape(images)[1:3]*2, dtype)
             
     return images
 
@@ -671,7 +672,7 @@ def retinanet(features,
     with tf.variable_scope('panoptic_net', reuse=tf.AUTO_REUSE):
       for level in range(min_level, max_level+1):
           map_outputs[level]=panoptic_class_net(feats[level],
-               level, is_training_bn=is_training_bn)
+               level, is_training_bn=is_training_bn, feats[level].dtype)
      
           if level == min_level:
               fused_feature = map_outputs[level]
@@ -687,7 +688,7 @@ def retinanet(features,
                       padding='same',
                       name='panoptic-final')
       map_output = resize_bilinear(fused_feature, tf.shape(features)[1:3],
-                                      fused_feature.dtype)  
+                                      feats[level].dtype)  
       
 
   return class_outputs, box_outputs, map_output
