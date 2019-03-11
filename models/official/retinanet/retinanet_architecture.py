@@ -1,4 +1,4 @@
-    # Copyright 2018 The TensorFlow Authors. All Rights Reserved.
+# Copyright 2018 The TensorFlow Authors. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -351,7 +351,7 @@ def resnet_v1_generator(block_fn, layers, data_format='channels_last'):
 
     inputs = tf.layers.max_pooling2d(
         inputs=inputs,
-            pool_size=3,
+        pool_size=3,
         strides=2,
         padding='SAME',
         data_format=data_format)
@@ -466,7 +466,7 @@ def class_net(images, level, num_classes, num_anchors=6, is_training_bn=False):
         kernel_initializer=tf.random_normal_initializer(stddev=0.01),
         activation=None,
         padding='same',
-                name='class-%d' % i)
+        name='class-%d' % i)
     # The convolution layers in the class net are shared among all levels, but
     # each level has its batch normlization to capture the statistical
     # difference among different levels.
@@ -478,7 +478,7 @@ def class_net(images, level, num_classes, num_anchors=6, is_training_bn=False):
       num_classes * num_anchors,
       kernel_size=(3, 3),
       bias_initializer=tf.constant_initializer(-np.log((1 - 0.01) / 0.01)),
-      kernel_initializer=tf.random_normal_initializer(stddev=0.01), 
+      kernel_initializer=tf.random_normal_initializer(stddev=0.01),
       padding='same',
       name='class-predict')
 
@@ -514,16 +514,51 @@ def box_net(images, level, num_anchors=6, is_training_bn=False):
 
   return boxes
 
-def map_net(images, level, is_training_bn=False):
-    """Map segmentation network for RetinaNet"""
-    images = tf.layers.conv2d(images, 
-                              256, 
-                              kernel_size=(3, 3),
-                              activation=None,
-                              bias_initializer=tf.zeros_initializer(),
-                              kernel_initializer=tf.random_normal_initializer(stddev=0.01),
-                              padding='same',
-                              name='map-%d' % level)
+def panoptic_class_net(images,
+                       level,
+                       num_channels=128,
+                       is_training_bn=False):
+    """
+    Segmentation Feature Extraction Module.
+    
+    Args:
+        images: A tensor of size [batch, height_in, width_in, channels_in].
+        level: The level of features at FPN output_size /= 2^level.
+        num_channels: The number of channels in convolution layers
+        is_training_bn: Whether batch_norm layers are in training mode.
+      Returns:
+        images: A feature tensor of size [batch, output_size, output_size,
+          channel_number]
+    """
+    if level == 2:
+        images = tf.layers.conv2d(
+                images,
+                num_channels,
+                kernel_size=(3,3),
+                bias_initializer=tf.zeros_initializer(),
+                kernel_initializer=tf.random_normal_initializer(stddev=0.01),
+                activation=None,
+                padding='same',
+                name='panoptic-2')
+        images = batch_norm_relu(images, is_training_bn, relu=True, 
+                                 init_zero=False, name='panoptic-2-bn')
+    
+    else:
+        for i in range(level - 2):
+            images = tf.layers.conv2d(
+                    images,
+                    num_channels,
+                    kernel_size=(3,3),
+                    bias_initializer=tf.zeros_initializer(),
+                    kernel_initializer=tf.random_normal_initializer(stddev=0.01),
+                    activation=None,
+                    padding='same',
+                    name='panoptic-{}-{}'.format(level, i))
+            images = batch_norm_relu(images, is_training_bn, relu=True,
+                                     init_zero=False, 
+                                     name='panoptic-{}-bn-{}'.format(level, i))
+            images = resize_bilinear(images, tf.shape(images)[1:3]*2, images.dtype)
+            
     return images
 
 
@@ -631,45 +666,31 @@ def retinanet(features,
       for level in range(min_level, max_level + 1):
         box_outputs[level] = box_net(feats[level], level,
                                      num_anchors, is_training_bn)
-#    with tf.variable_scope('map_net', reuse=tf.AUTO_REUSE):
-#        for level in range(min_level, max_level +1):
-#            map_outputs[level] = map_net(feats[level], level, 
-#                                       is_training_bn)
-    ### TO BE CHANGED
-    with tf.variable_scope('seg_net', reuse=tf.AUTO_REUSE) :
-        for level in range(min_level, max_level + 1):
-          map_outputs[level] = segmentation_class_net(
-              feats[level], level, is_training_bn=is_training_bn)
+  
+  with tf.variable_scope('retinanet_seg'):
+    with tf.variable_scope('panoptic_net', reuse=tf.AUTO_REUSE):
+      for level in range(min_level, max_level+1):
+          map_outputs[level]=panoptic_class_net(feats[level],
+               level, is_training_bn=is_training_bn)
+     
           if level == min_level:
-            fused_feature = map_outputs[level]
+              fused_feature = map_outputs[level]
           else:
-#            if use_nearest_upsampling:
-#              scale = level / min_level
-#              map_outputs[level] = tf.Print(map_outputs[level], 
-#                                        [tf.shape(map_outputs[level])])
-#              map_outputs[level] = nearest_upsampling(map_outputs[level], scale)
-#              map_outputs[level] = tf.Print(map_outputs[level], 
-#                                        [tf.shape(map_outputs[level])])
-#            else:
-            map_outputs[level] = resize_bilinear(
-                map_outputs[level], tf.shape(map_outputs[min_level])[1:3], 
-                map_outputs[level].dtype)
-            fused_feature += map_outputs[level]
-        fused_feature = batch_norm_relu(
-          fused_feature, is_training_bn, relu=True, init_zero=False)
-        classes = tf.layers.conv2d(
-          fused_feature,
-          1,
-          kernel_size=(3, 3),
-          bias_initializer=tf.zeros_initializer(),
-          kernel_initializer=tf.random_normal_initializer(stddev=0.01),
-          padding='same',
-          name='map-predict')
-            
-    
-    ## THE END
+              fused_feature += map_outputs[level]
+    with tf.variable_scope('panoptic_blowup', reuse=tf.AUTO_REUSE):
+      fused_feature = tf.layers.conv2d(
+                      fused_feature,
+                      num_classes,
+                      kernel_size=(1,1),
+                      bias_initializer=tf.zeros_initializer(),  
+                      kernel_initializer=tf.random_normal_initializer(stddev=0.01),
+                      padding='same',
+                      name='panoptic-final')
+      map_output = resize_bilinear(fused_feature, tf.shape(features)[1:3],
+                                      fused_feature.dtype)  
+      
 
-  return class_outputs, box_outputs, classes
+  return class_outputs, box_outputs, map_output
 
 
 def remove_variables(variables, resnet_depth=50):
@@ -733,53 +754,6 @@ def segmentation_class_net(images,
       name='class-final')
   return images
 
-def panoptic_class_net(images,
-                       level,
-                       num_channels=128,
-                       is_training_bn=False):
-    """
-    Segmentation Feature Extraction Module.
-    
-    Args:
-        images: A tensor of size [batch, height_in, width_in, channels_in].
-        level: The level of features at FPN output_size /= 2^level.
-        num_channels: The number of channels in convolution layers
-        is_training_bn: Whether batch_norm layers are in training mode.
-      Returns:
-        images: A feature tensor of size [batch, output_size, output_size,
-          channel_number]
-    """
-    if level == 2:
-        images = tf.layers.conv2d(
-                images,
-                num_channels,
-                kernel_size=(3,3),
-                bias_initializer=tf.zeros_initializer(),
-                kernel_initializer=tf.random_normal_initializer(stddev=0.01),
-                activation=None,
-                padding='same',
-                name='panoptic-2')
-        images = batch_norm_relu(images, is_training_bn, relu=True, 
-                                 init_zero=False, name='panoptic-2-bn')
-    
-    else:
-        for i in range(level - 2):
-            images = tf.layers.conv2d(
-                    images,
-                    num_channels,
-                    kernel_size=(3,3),
-                    bias_initializer=tf.zeros_initializer(),
-                    kernel_initializer=tf.random_normal_initializer(stddev=0.01),
-                    activation=None,
-                    padding='same',
-                    name='panoptic-{}-{}'.format(level, i))
-            images = batch_norm_relu(images, is_training_bn, relu=True,
-                                     init_zero=False, 
-                                     name='panoptic-{}-bn-{}'.format(level, i))
-            images = resize_bilinear(images, tf.shape(images)[1:3]*2, images.dtype)
-            
-    return images
-    
 
 def retinanet_segmentation(features,
                            min_level=3,
@@ -807,22 +781,21 @@ def retinanet_segmentation(features,
   """
   feats = resnet_fpn(features, min_level, max_level, resnet_depth,
                      is_training_bn, use_nearest_upsampling)
-    
-  map_outputs = {}
+
   with tf.variable_scope('class_net', reuse=tf.AUTO_REUSE):
     for level in range(min_level, max_level + 1):
-      map_outputs[level] = segmentation_class_net(
+      feats[level] = segmentation_class_net(
           feats[level], level, is_training_bn=is_training_bn)
       if level == min_level:
-        fused_feature = map_outputs[level]
+        fused_feature = feats[level]
       else:
         if use_nearest_upsampling:
           scale = level / min_level
-          map_outputs[level] = nearest_upsampling(map_outputs[level], scale)
+          feats[level] = nearest_upsampling(feats[level], scale)
         else:
-          map_outputs[level] = resize_bilinear(   
-              map_outputs[level], tf.shape(feats[min_level])[1:3], map_outputs[level].dtype)
-        fused_feature += map_outputs[level]
+          feats[level] = resize_bilinear(
+              feats[level], tf.shape(feats[min_level])[1:3], feats[level].dtype)
+        fused_feature += feats[level]
   fused_feature = batch_norm_relu(
       fused_feature, is_training_bn, relu=True, init_zero=False)
   classes = tf.layers.conv2d(
@@ -836,9 +809,10 @@ def retinanet_segmentation(features,
 
   return classes
 
+
 def panoptic_segmentation(features,
                            min_level=2,
-                           max_level=5,
+                           max_level=5, 
                            num_classes=21,
                            resnet_depth=50,
                            use_nearest_upsampling=False,
@@ -878,14 +852,11 @@ def panoptic_segmentation(features,
                       fused_feature,
                       num_classes,
                       kernel_size=(1,1),
-                      bias_initializer=tf.zeros_initializer(),
+                      bias_initializer=tf.zeros_initializer(),  
                       kernel_initializer=tf.random_normal_initializer(stddev=0.01),
                       padding='same',
                       name='panoptic-final')
-      classes = fused_feature
       classes = resize_bilinear(fused_feature, tf.shape(features)[1:3],
-                                fused_feature.dtype)
+                                      fused_feature.dtype)
       
   return classes
-
-  
