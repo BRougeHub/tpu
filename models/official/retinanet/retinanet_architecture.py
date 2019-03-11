@@ -518,7 +518,7 @@ def panoptic_class_net(images,
                        level,
                        num_channels=128,
                        is_training_bn=False,
-                       dtype=dtype):
+                       dtype=None):
     """
     Segmentation Feature Extraction Module.
     
