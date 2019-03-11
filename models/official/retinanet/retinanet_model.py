@@ -401,6 +401,7 @@ def _model_fn(features, labels, mode, params, model, variable_filter_fn=None):
       for level in levels:
         cls_outputs[level] = tf.cast(cls_outputs[level], tf.float32)
         box_outputs[level] = tf.cast(box_outputs[level], tf.float32)
+      map_output = tf.cast(map_output, tf.float32)
   else:
     cls_outputs, box_outputs, map_output = _model_outputs()
     levels = cls_outputs.keys()
