@@ -561,5 +561,5 @@ def default_hparams():
       box_loss_weight=50.0,
       # enable bfloat
       use_bfloat16=True,
-      ignore_label=255.,
+      ignore_label=255,
   )
