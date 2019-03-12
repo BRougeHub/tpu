@@ -842,7 +842,7 @@ def panoptic_segmentation(features,
   with tf.variable_scope('panoptic_net', reuse=tf.AUTO_REUSE):
       for level in range(min_level, max_level+1):
           map_outputs[level]=panoptic_class_net(feats[level],
-               level, is_training_bn=is_training_bn)
+               level, is_training_bn=is_training_bn, dtype=feats[level].dtype)
      
           if level == min_level:
               fused_feature = map_outputs[level]
