@@ -49,7 +49,7 @@ def _segmentation_loss(logits, labels, params):
       normalized by the total non-ignored pixels.
   """
   # Downsample labels by the min_level feature stride.
-  stride = 1
+  stride = 2**params['min_level']
   scaled_labels = labels[:, 0::stride, 0::stride]
 
   scaled_labels = tf.cast(scaled_labels, tf.int32)
