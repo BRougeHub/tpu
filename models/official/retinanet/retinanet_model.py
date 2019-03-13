@@ -203,25 +203,24 @@ def _segmentation_loss(logits, labels, params):
       normalized by the total non-ignored pixels.
   """
   # Downsample labels by the min_level feature stride.
-  stride = 1
+  stride = 2**params['min_level']
   scaled_labels = labels[:, 0::stride, 0::stride]
-
   scaled_labels = tf.cast(scaled_labels, tf.int32)
-  #scaled_labels = scaled_labels[:, :, :, 0]
+  scaled_labels = scaled_labels[:, :, :, 0]
   bit_mask = tf.not_equal(scaled_labels, params['ignore_label'])
-  # Assign ignore label to background to avoid error when computing
-  # Cross entropy loss.
-  #scaled_labels = tf.where(bit_mask, scaled_labels,
-    #                       tf.zeros_like(scaled_labels))
-  scaled_labels = tf.to_float(tf.not_equal(scaled_labels, 0))
+# Assign ignore label to background to avoid error when computing
+# Cross entropy loss.
+  scaled_labels = tf.where(bit_mask, scaled_labels,
+  tf.zeros_like(scaled_labels))
+
+
   normalizer = tf.reduce_sum(tf.to_float(bit_mask))
-  cross_entropy_loss = tf.nn.sigmoid_cross_entropy_with_logits(
-    labels=scaled_labels, logits=logits)
-  #cross_entropy_loss = tf.nn.sparse_softmax_cross_entropy_with_logits(
-   #   labels=scaled_labels, logits=logits)
+  cross_entropy_loss = tf.nn.sparse_softmax_cross_entropy_with_logits(
+  labels=scaled_labels, logits=logits)
   cross_entropy_loss *= tf.to_float(bit_mask)
   loss = tf.reduce_sum(cross_entropy_loss) / normalizer
   return loss
+
 
 
 def detection_loss(cls_outputs, box_outputs, map_output, labels, params):
@@ -538,10 +537,10 @@ def default_hparams():
       train_scale_min=1.0,
       train_scale_max=1.0,
       # dataset specific parameters
-      num_classes=1,
+      num_classes=91,
       skip_crowd_during_training=True,
       # model architecture
-      min_level=3,
+      min_level=2,
       max_level=7,
       num_scales=3,
       aspect_ratios=[(1.0, 1.0), (1.4, 0.7), (0.7, 1.4)],
