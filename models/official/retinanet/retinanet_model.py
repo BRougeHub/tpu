@@ -207,12 +207,12 @@ def _segmentation_loss(logits, labels, params):
   scaled_labels = labels[:, 0::stride, 0::stride]
 
   scaled_labels = tf.cast(scaled_labels, tf.int32)
-  scaled_labels = scaled_labels[:, :, :, 0]
+  #scaled_labels = scaled_labels[:, :, :, 0]
   bit_mask = tf.not_equal(scaled_labels, params['ignore_label'])
   # Assign ignore label to background to avoid error when computing
   # Cross entropy loss.
-  scaled_labels = tf.where(bit_mask, scaled_labels,
-                           tf.zeros_like(scaled_labels))
+  #scaled_labels = tf.where(bit_mask, scaled_labels,
+    #                       tf.zeros_like(scaled_labels))
   scaled_labels = tf.not_equal(scaled_labels, 0)
   normalizer = tf.reduce_sum(tf.to_float(bit_mask))
   cross_entropy_loss = tf.nn.sigmoid_cross_entropy_with_logits(
