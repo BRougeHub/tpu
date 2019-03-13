@@ -203,7 +203,7 @@ def _segmentation_loss(logits, labels, params):
       normalized by the total non-ignored pixels.
   """
   # Downsample labels by the min_level feature stride.
-  stride = 2**1
+  stride = 1
   scaled_labels = labels[:, 0::stride, 0::stride]
 
   scaled_labels = tf.cast(scaled_labels, tf.int32)
@@ -539,8 +539,8 @@ def default_hparams():
       num_classes=91,
       skip_crowd_during_training=True,
       # model architecture
-      min_level=2,
-      max_level=5,
+      min_level=3,
+      max_level=7,
       num_scales=3,
       aspect_ratios=[(1.0, 1.0), (1.4, 0.7), (0.7, 1.4)],
       anchor_scale=4.0,
