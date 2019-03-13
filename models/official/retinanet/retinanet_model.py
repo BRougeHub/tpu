@@ -213,10 +213,12 @@ def _segmentation_loss(logits, labels, params):
   # Cross entropy loss.
   scaled_labels = tf.where(bit_mask, scaled_labels,
                            tf.zeros_like(scaled_labels))
-
+  scaled_labels = tf.not_equal(scaled_labels, 0)
   normalizer = tf.reduce_sum(tf.to_float(bit_mask))
-  cross_entropy_loss = tf.nn.sparse_softmax_cross_entropy_with_logits(
-      labels=scaled_labels, logits=logits)
+  cross_entropy_loss = tf.nn.sigmoid_cross_entropy_with_logits(
+    labels=scaled_labels, logits=logits)
+  #cross_entropy_loss = tf.nn.sparse_softmax_cross_entropy_with_logits(
+   #   labels=scaled_labels, logits=logits)
   cross_entropy_loss *= tf.to_float(bit_mask)
   loss = tf.reduce_sum(cross_entropy_loss) / normalizer
   return loss
@@ -536,7 +538,7 @@ def default_hparams():
       train_scale_min=1.0,
       train_scale_max=1.0,
       # dataset specific parameters
-      num_classes=91,
+      num_classes=1,
       skip_crowd_during_training=True,
       # model architecture
       min_level=3,
