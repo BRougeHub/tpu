@@ -670,7 +670,7 @@ def retinanet(features,
   
   with tf.variable_scope('retinanet_seg'):
     with tf.variable_scope('panoptic_net', reuse=tf.AUTO_REUSE):
-      for level in range(min_level, max_level+1):
+      for level in range(min_level, 5+1):
           map_outputs[level]=panoptic_class_net(feats[level],
                level, is_training_bn=is_training_bn, dtype=feats[level].dtype)
      
@@ -689,7 +689,7 @@ def retinanet(features,
                       name='panoptic-final')
       #scale = tf.to_int32(2/1)
       #map_output = nearest_upsampling(fused_feature, scale)
-      map_output = resize_bilinear(fused_feature, tf.to_int32(tf.shape(features)[1:3]/2),
+      map_output = resize_bilinear(fused_feature, tf.shape(features)[1:3],
                                       feats[level].dtype)  
       
 
