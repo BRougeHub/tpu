@@ -687,10 +687,10 @@ def retinanet(features,
                       kernel_initializer=tf.random_normal_initializer(stddev=0.01),
                       padding='same',
                       name='panoptic-final')
-      scale = tf.to_int32(2/1)
-      map_output = nearest_upsampling(fused_feature, scale)
-      #map_output = resize_bilinear(fused_feature, tf.to_int32(tf.shape(features)[1:3]/2),
-       #                               feats[level].dtype)  
+      #scale = tf.to_int32(2/1)
+      #map_output = nearest_upsampling(fused_feature, scale)
+      map_output = resize_bilinear(fused_feature, tf.to_int32(tf.shape(features)[1:3]/2),
+                                      feats[level].dtype)  
       
 
   return class_outputs, box_outputs, map_output
