@@ -538,7 +538,7 @@ def default_hparams():
       train_scale_min=1.0,
       train_scale_max=1.0,
       # dataset specific parameters
-      num_classes=2,
+      num_classes=90,
       skip_crowd_during_training=True,
       # model architecture
       min_level=2,
