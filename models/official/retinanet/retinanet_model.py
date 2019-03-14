@@ -541,7 +541,7 @@ def default_hparams():
       num_classes=2,
       skip_crowd_during_training=True,
       # model architecture
-      min_level=3,
+      min_level=2,
       max_level=7,
       num_scales=3,
       aspect_ratios=[(1.0, 1.0), (1.4, 0.7), (0.7, 1.4)],
