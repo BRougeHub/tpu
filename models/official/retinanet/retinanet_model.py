@@ -453,7 +453,7 @@ def _model_fn(features, labels, mode, params, model, variable_filter_fn=None):
 #          assign_map[var] = var
           assign_map2 = {'resnet50/': 'resnet50/',
                          'resnet_fpn/':'resnet_fpn/',
-                         'retinanet_seg/': 'retinanet_seg/'}
+                         'retinanet_seg/panoptic_net/': 'retinanet_seg/panoptic_net/'}
           assign_map.update(assign_map2)
           tf.train.init_from_checkpoint(params['pre_trained'],
                                         assign_map)
