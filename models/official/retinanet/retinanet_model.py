@@ -210,7 +210,7 @@ def _segmentation_loss(logits, labels, params):
   bit_mask = tf.not_equal(scaled_labels, params['ignore_label'])
 # Assign ignore label to background to avoid error when computing
 # Cross entropy loss.
-  scaled_labels = tf.to_int32(scaled_labels)
+  scaled_labels = tf.to_int32(tf.not_equal(scaled_labels, 0))
   #scaled_labels = tf.where(bit_mask, scaled_labels,
   #tf.zeros_like(scaled_labels))
 
@@ -453,7 +453,7 @@ def _model_fn(features, labels, mode, params, model, variable_filter_fn=None):
 #          assign_map[var] = var
           assign_map2 = {'resnet50/': 'resnet50/',
                          'resnet_fpn/':'resnet_fpn/',
-                         'retinanet_seg/panoptic_net/': 'retinanet_seg/panoptic_net/'}
+                         'retinanet_seg/': 'retinanet_seg/'}
           assign_map.update(assign_map2)
           tf.train.init_from_checkpoint(params['pre_trained'],
                                         assign_map)
