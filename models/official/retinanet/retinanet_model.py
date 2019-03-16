@@ -210,7 +210,7 @@ def _segmentation_loss(logits, labels, params):
   bit_mask = tf.not_equal(scaled_labels, params['ignore_label'])
 # Assign ignore label to background to avoid error when computing
 # Cross entropy loss.
-  scaled_labels = tf.to_int32(tf.not_equal(scaled_labels, 0))
+  scaled_labels = tf.to_int32(scaled_labels)
   #scaled_labels = tf.where(bit_mask, scaled_labels,
   #tf.zeros_like(scaled_labels))
 
@@ -562,13 +562,13 @@ def default_hparams():
       # input preprocessing parameters
       image_size=640,
       input_rand_hflip=True,
-      train_scale_min=1.0,
-      train_scale_max=1.0,
+      train_scale_min=0.8,
+      train_scale_max=1.2,
       # dataset specific parameters
       num_classes=90,
       skip_crowd_during_training=True,
       # model architecture
-      min_level=3,
+      min_level=2,
       max_level=7,
       num_scales=3,
       aspect_ratios=[(1.0, 1.0), (1.4, 0.7), (0.7, 1.4)],
