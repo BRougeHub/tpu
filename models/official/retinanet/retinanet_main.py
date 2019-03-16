@@ -64,6 +64,10 @@ flags.DEFINE_string(
     'resnet_checkpoint', '',
     'Location of the ResNet50 checkpoint to use for model '
     'initialization.')
+flags.DEFINE_string(
+    'pre_trained', '',
+    'Location of the Pretrained checkpoint to use for model '
+    'initialization.')
 flags.DEFINE_string('hparams', '',
                     'Comma separated k=v pairs of hyperparameters.')
 flags.DEFINE_integer(
@@ -211,6 +215,7 @@ def main(argv):
       num_examples_per_epoch=FLAGS.num_examples_per_epoch,
       use_tpu=FLAGS.use_tpu,
       resnet_checkpoint=FLAGS.resnet_checkpoint,
+      pre_trained=FLAGS.pre_trained,
       val_json_file=FLAGS.val_json_file,
       mode=FLAGS.mode,
   )
