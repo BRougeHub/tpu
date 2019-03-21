@@ -670,18 +670,18 @@ def retinanet(features,
   
   with tf.variable_scope('retinanet_seg'):
     with tf.variable_scope('panoptic_net', reuse=tf.AUTO_REUSE):
-      for level in range(min_level, min_level+1):
+      for level in range(min_level, 5+1):
           map_outputs[level]=panoptic_class_net(feats[level],
                level, is_training_bn=is_training_bn, dtype=feats[level].dtype)
      
           if level == min_level:
               fused_feature = map_outputs[level]
           else:
-              fused_feature += map_outputs[level]
+              fused_feature = tf.concat([fused_feature, map_outputs[level]], axis=-1)
     with tf.variable_scope('panoptic_blowup', reuse=tf.AUTO_REUSE):
       fused_feature = tf.layers.conv2d(
                       fused_feature,
-                      3,
+                      2,
                       kernel_size=(1,1),
                       bias_initializer=tf.zeros_initializer(),  
                       kernel_initializer=tf.random_normal_initializer(stddev=0.01),
