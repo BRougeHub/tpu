@@ -532,17 +532,18 @@ def panoptic_class_net(images,
           channel_number]
     """
     if level == 2:
-        images = tf.layers.conv2d(
-                images,
-                num_channels,
-                kernel_size=(3,3),
-                bias_initializer=tf.zeros_initializer(),
-                kernel_initializer=tf.random_normal_initializer(stddev=0.01),
-                activation=None,
-                padding='same',
-                name='panoptic-2')
-        images = batch_norm_relu(images, is_training_bn, relu=True, 
-                                 init_zero=False, name='panoptic-2-bn')
+      for i in range(3):
+          images = tf.layers.conv2d(
+                  images,
+                  num_channels,
+                  kernel_size=(3,3),
+                  bias_initializer=tf.zeros_initializer(),
+                  kernel_initializer=tf.random_normal_initializer(stddev=0.01),
+                  activation=None,
+                  padding='same',
+                  name='panoptic-2-{}'.format(i))
+          images = batch_norm_relu(images, is_training_bn, relu=True, 
+                                   init_zero=False, name='panoptic-2-bn-{}'.format(i))
     
     else:
         for i in range(level - 2):
