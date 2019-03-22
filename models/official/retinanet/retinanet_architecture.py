@@ -532,18 +532,17 @@ def panoptic_class_net(images,
           channel_number]
     """
     if level == 2:
-      for i in range(3):
-          images = tf.layers.conv2d(
-                  images,
-                  num_channels,
-                  kernel_size=(3,3),
-                  bias_initializer=tf.zeros_initializer(),
-                  kernel_initializer=tf.random_normal_initializer(stddev=0.01),
-                  activation=None,
-                  padding='same',
-                  name='panoptic-2-{}'.format(i))
-          images = batch_norm_relu(images, is_training_bn, relu=True, 
-                                   init_zero=False, name='panoptic-2-bn-{}'.format(i))
+        images = tf.layers.conv2d(
+                images,
+                num_channels,
+                kernel_size=(3,3),
+                bias_initializer=tf.zeros_initializer(),
+                kernel_initializer=tf.random_normal_initializer(stddev=0.01),
+                activation=None,
+                padding='same',
+                name='panoptic-2')
+        images = batch_norm_relu(images, is_training_bn, relu=True, 
+                                 init_zero=False, name='panoptic-2-bn')
     
     else:
         for i in range(level - 2):
@@ -671,18 +670,18 @@ def retinanet(features,
   
   with tf.variable_scope('retinanet_seg'):
     with tf.variable_scope('panoptic_net', reuse=tf.AUTO_REUSE):
-      for level in range(min_level, 5+1):
+      for level in range(min_level, 2+1):
           map_outputs[level]=panoptic_class_net(feats[level],
                level, is_training_bn=is_training_bn, dtype=feats[level].dtype)
      
           if level == min_level:
               fused_feature = map_outputs[level]
           else:
-              fused_feature = tf.concat([fused_feature, map_outputs[level]], axis=-1)
+              fused_feature += map_outputs[level]
     with tf.variable_scope('panoptic_blowup', reuse=tf.AUTO_REUSE):
       fused_feature = tf.layers.conv2d(
                       fused_feature,
-                      2,
+                      3,
                       kernel_size=(1,1),
                       bias_initializer=tf.zeros_initializer(),  
                       kernel_initializer=tf.random_normal_initializer(stddev=0.01),
