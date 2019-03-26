@@ -208,6 +208,7 @@ def _segmentation_loss(logits, labels, params):
   scaled_labels = tf.cast(scaled_labels, tf.int32)
   scaled_labels = scaled_labels[:, :, :, 0]
   bit_mask = tf.not_equal(scaled_labels, params['ignore_label'])
+  scaled_labels = tf.not_equal(scaled_labels, 0)
 # Assign ignore label to background to avoid error when computing
 # Cross entropy loss.
   scaled_labels = tf.to_int32(scaled_labels)
