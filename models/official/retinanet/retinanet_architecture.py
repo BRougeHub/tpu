@@ -670,7 +670,7 @@ def retinanet(features,
   
   with tf.variable_scope('retinanet_seg'):
     with tf.variable_scope('panoptic_net', reuse=tf.AUTO_REUSE):
-      for level in range(min_level, 3+1):
+      for level in range(min_level, 5+1):
           map_outputs[level]=panoptic_class_net(feats[level],
                level, is_training_bn=is_training_bn, dtype=feats[level].dtype)
      
