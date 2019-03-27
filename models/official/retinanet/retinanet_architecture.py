@@ -571,7 +571,6 @@ def resnet_fpn(features,
                use_nearest_upsampling=True):
   """ResNet feature pyramid networks."""
   # upward layers
-  min_level=2
   with tf.variable_scope('resnet%s' % resnet_depth):
     resnet_fn = resnet_v1(resnet_depth)
     u2, u3, u4, u5 = resnet_fn(features, is_training_bn)
@@ -671,11 +670,11 @@ def retinanet(features,
   
   with tf.variable_scope('retinanet_seg'):
     with tf.variable_scope('panoptic_net', reuse=tf.AUTO_REUSE):
-      for level in range(min_level-1, 5+1):
+      for level in range(min_level, 5+1):
           map_outputs[level]=panoptic_class_net(feats[level],
                level, is_training_bn=is_training_bn, dtype=feats[level].dtype)
      
-          if level == min_level-1:
+          if level == min_level:
               fused_feature = map_outputs[level]
           else:
               fused_feature += map_outputs[level]
