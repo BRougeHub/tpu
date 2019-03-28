@@ -216,7 +216,7 @@ def _segmentation_loss(logits, labels, params):
   #tf.zeros_like(scaled_labels))
 
 
-  normalizer = tf.reduce_sum(tf.to_float(scaled_labels))
+  normalizer = tf.reduce_sum(tf.to_float(bit_mask))
   cross_entropy_loss = tf.nn.sparse_softmax_cross_entropy_with_logits(
   labels=scaled_labels, logits=logits)
   cross_entropy_loss *= tf.to_float(bit_mask)
